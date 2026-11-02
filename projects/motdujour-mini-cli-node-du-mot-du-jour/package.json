@@ -1,0 +1,13 @@
+{
+  "name": "motdujour",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Mini CLI : le mot du jour en français, déterministe par la date (SHA-256 du YYYY-MM-DD sur une liste intégrée de 100 mots).",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "lint": "node --check src/index.js && node --check test/motdujour.test.js",
+    "test": "node --test",
+    "build": "node --input-type=module -e \"const m=await import('./src/index.js'); if(!m.WORDS.includes(m.wordForDate('2025-01-01'))) process.exit(1)\""
+  }
+}
