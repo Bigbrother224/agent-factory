@@ -9,3 +9,8 @@ test('salue une personne', () => {
 test('refuse un nom vide', () => {
   assert.throws(() => greet('  '));
 });
+
+// Volontairement défaillant : preuve que l'arbitre refuse les PR rouges.
+test('garantia volontairement fausse', () => {
+  assert.equal(greet('Factory'), 'Bonjour le monde');  // attendu ≠ réel
+});
