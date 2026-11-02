@@ -1,0 +1,127 @@
+name: fleet-b
+
+on:
+  issues:
+    types: [labeled]
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: fleet-b-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    # Porte 1 passée : l'issue labelée idea/approved déclenche la flotte B (Aider × Ollama).
+    if: github.event.label.name == 'idea/approved'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+
+      - name: Outils (aider + identité git)
+        run: |
+          chmod +x verify.sh
+          pipx install aider-chat
+          git config user.name "fleet-b-aider"
+          git config user.email "actions@users.noreply.github.com"
+
+      - name: Brief (contrat B + spec de l'issue)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+        run: |
+          gh issue view "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --json body -q .body > /tmp/spec.md
+          SLUG=$(python3 - <<'PY'
+import os, re, unicodedata
+t = unicodedata.normalize('NFKD', os.environ['ISSUE_TITLE']).encode('ascii', 'ignore').decode()
+s = re.sub(r'[^a-z0-9]+', '-', t.lower()).strip('-')
+print((s[:40].rstrip('-')) or 'projet')
+PY
+          )
+          echo "SLUG=$SLUG" >> "$GITHUB_ENV"
+          echo "ISSUE_NUMBER=$ISSUE_NUMBER" >> "$GITHUB_ENV"
+          {
+            echo "# Tâche — flotte B"
+            echo
+            echo "Projet à créer : **projects/$SLUG/**"
+            echo
+            cat fleet/CONTRAT-B.md
+            echo
+            echo "## Spécification (issue #$ISSUE_NUMBER)"
+            echo
+            cat /tmp/spec.md
+          } > /tmp/brief.md
+          echo "--- Brief composé (${#BRIEF} chars) ---" || true
+
+      - name: Session Aider (max 3 tentatives, arbitre verify.sh entre chacune)
+        env:
+          OPENAI_API_KEY: ${{ secrets.OLLAMA_API_KEY }}
+        run: |
+          AIDER="aider --model openai/glm-5.3:cloud --openai-api-base https://ollama.com/v1 \
+            --weak-model openai/glm-5.3-flash:cloud --edit-format udiff \
+            --yes-always --no-auto-lint --no-check-update \
+            --no-attribute-author --no-attribute-committer \
+            --no-attribute-commit-message-author --no-attribute-commit-message-committer"
+          GREEN=0
+          for ATTEMPT in 1 2 3; do
+            echo "=== Tentative $ATTEMPT/3 ==="
+            if [ "$ATTEMPT" = "1" ]; then
+              $AIDER --test-cmd "./verify.sh $SLUG" --auto-test --message-file /tmp/brief.md
+            else
+              $AIDER --test-cmd "./verify.sh $SLUG" --auto-test \
+                --message "L'arbitre ./verify.sh $SLUG est ROUGE (tentative $ATTEMPT/3). Diagnostique avec le runner de tests du projet, corrige les vraies causes (ne bidouille pas les tests), jusqu'au vert complet de ./verify.sh $SLUG. Ne modifie rien en dehors de projects/$SLUG/."
+            fi
+            if ./verify.sh "$SLUG"; then GREEN=1; break; fi
+          done
+          ./verify.sh "$SLUG" > /tmp/verify-final.txt 2>&1 || true
+          echo "GREEN=$GREEN" >> "$GITHUB_ENV"
+
+      - name: PR (si vert) ou verdict verify/failed (si rouge après 3)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "$GREEN" = "1" ]; then
+            git add -A
+            git commit -m "flotte B : $SLUG (MVP, verify.sh vert)" --allow-empty || true
+            git checkout -b "fleet/$SLUG"
+            git push -u origin "fleet/$SLUG"
+            {
+              echo "Livrable de la flotte B (Aider × glm-5.3, plan Ollama) pour l'issue #$ISSUE_NUMBER."
+              echo
+              echo "Sortie finale de l'arbitre \`./verify.sh $SLUG\` :"
+              echo '```'
+              tail -15 /tmp/verify-final.txt
+              echo '```'
+            } > /tmp/pr-body.md
+            gh pr create --repo "$GITHUB_REPOSITORY" --base main --head "fleet/$SLUG" \
+              --title "[$SLUG] MVP — flotte B (Aider)" --body-file /tmp/pr-body.md
+            PR_URL=$(gh pr list --repo "$GITHUB_REPOSITORY" --head "fleet/$SLUG" --json url -q '.[0].url')
+            echo "--- Attente de la CI (groupe C) sur $PR_URL ---"
+            gh pr checks "$PR_URL" --watch > /dev/null 2>&1 || true
+            if gh pr checks "$PR_URL" > /dev/null 2>&1; then
+              gh pr edit "$PR_URL" --add-label "verify/ok"
+              gh issue edit "$ISSUE_NUMBER" --add-label "ship/pr"
+              echo ">>> verify/ok + ship/pr posés — porte 2 humaine."
+            else
+              gh issue edit "$ISSUE_NUMBER" --add-label "verify/failed"
+              echo ">>> CI rouge malgré l'arbitre local — verify/failed posé."
+            fi
+          else
+            gh issue comment "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" \
+              --body "3 tentatives épuisées : l'arbitre ./verify.sh reste rouge. Label verify/failed posé, pas de PR. Sortie finale : $(tail -3 /tmp/verify-final.txt | tr '\n' ' ')"
+            gh issue edit "$ISSUE_NUMBER" --add-label "verify/failed"
+          fi
