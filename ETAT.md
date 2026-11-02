@@ -11,8 +11,8 @@ Dernière mise à jour : 2026-11-02
 ## Plan (5 étapes)
 1. **[VALIDÉE] Dépôt + arbitre froid** : repo privé `Bigbrother224/agent-factory`, `ideas/`, `verify.sh`, CI qui refuse les PR rouges, 6 labels. Preuve : PR #1 défaillante → run 41451930498 = failure.
 2. **[VALIDÉE] Groupe A branché** : `scripts/veille.sh` (digest live HN+GitHub sourcé) + scout pi-team lecture-seule → `ideas/AAAA-MM-JJ-slug.md` → issue `idea/draft`. Cron 08:30 UTC (`scripts/scout-daily.sh`, idempotent, off-peak −50%).
-3. **[BLOQUÉE — accès] Audition de B** : brief identique prêt (`audition/BRIEF-B.md`). Codex : compte ChatGPT refuse tous les modèles (dernière session réelle : juin 2026 ; CLI à jour 0.166.0 ; diagnostic dans `audition/RESULTATS.md`). Devin : pas de clé Cognition. Jules : pas d'accès. Reprise documentée.
-4. Brancher B et C : `idea/approved` → session flotte (API) ; PR → `verify.sh` + revue C ; `verify/failed` → relance B (max 3) ; `verify/ok` → `ship/pr` → porte 2.
+3. **[VALIDÉE] Audition de B** : contrainte « zéro payant, plan Ollama seul » (décision humaine 2026-11-02). Aider ✅ (PR #3, CI verte run 41459426998, 2 relances) · OpenHands ❌ (0 livré en 4417 s / 60 itérations max) · SWE-agent installé non évalué. Devin/Codex/Jules exclus (payants). **Verdict : flotte B = Aider** (config verrouillée dans `audition/RESULTATS.md`).
+4. **[PROCHAINE] Brancher B et C** : workflow GitHub `idea/approved` → session Aider (commande dans `audition/RESULTATS.md`) ; PR → `verify.sh` + revue C ; `verify/failed` → relance (max 3) ; `verify/ok` → `ship/pr` → porte 2.
 5. Première idée réelle en boucle complète + métrique : interventions humaines ≤ 2 par cycle.
 
 ## Fait — étape 1 (2026-11-02)
@@ -26,15 +26,14 @@ Dernière mise à jour : 2026-11-02
 - `scripts/scout-daily.sh` : pipeline complet journalier (digest → scout → md → issue), idempotent (1 idée/jour max), garde-fous (titre/label manquants = échec explicite). Testé : sort propre si l'idée du jour existe.
 - Cron installé : `30 8 * * *` UTC, log dans `.veille/cron.log`.
 
-## Fait — tour 3 (2026-11-02, ce tour)
-- Issue #2 **enrichie** après ton retour : §4 tableau de différenciation explicite vs Pi-hole/NextDNS (blocage par connexion/domaine, apprentissage, zéro-config, local-only), §5 installation en 3 chemins (image Pi flashable, migration Pi-hole en 1 ligne, binaire Go statique) — body de l'issue mis à jour.
-- **Porte 1 exécutée** : `idea/approved` posé sur l'issue #2.
-- `audition/BRIEF-B.md` : brief d'audition identique pour les 3 candidats (MVP Go std-lib : résolveur DNS + profils par marque + parseur ClientHello/SNI + 8 tests min., `./verify.sh teleblock` non négociable).
-- **Audition tentée en réel — 3 blocages d'accès** : Codex (compte ChatGPT refuse tous les modèles — abonnement ? à re-authentifier), Devin (pas de clé API Cognition), Jules (pas installé). CLI Codex mise à jour 0.146.0 → 0.166.0 au passage.
-- Résultats + diagnostic + procédure de reprise exacte : `audition/RESULTATS.md`.
+## Fait — tours 3-4 (2026-11-02)
+- Issue #2 enrichie (différenciation Pi-hole explicite + installation 3 chemins) et **approuvée** (porte 1). Brief d'audition identique : `audition/BRIEF-B.md`.
+- Décision humaine : **zéro payant** → candidats libres pilotés par l'API Ollama (glm-5.3:cloud). Devin/Codex/Jules exclus.
+- Audition réelle : **Aider VAINQUEUR** — PR #3 livrée, CI GitHub verte (run 41459426998), 2 relances opérateur ; hallucination de vérif détectée en session 1 (l'arbitre seul dit la vérité). **OpenHands : échec** (0 fichier en 4417 s, 60/60 itérations) ; worktree nettoyé. SWE-agent installé, non évalué (budget temps).
+- Verdict go/no-go : **flotte B = Aider**, config verrouillée dans `audition/RESULTATS.md`.
 
 ## Prochaine étape
-Toi : débloquer UN accès (1. `codex logout && codex login` + vérifier abonnement ChatGPT/Codex · 2. clé api.devin.ai · 3. accès Jules). Ensuite : relancer l'audition selon `audition/RESULTATS.md` (commandes prêtes) et remplir le tableau factuel.
+Étape 4 : brancher le cycle complet — GitHub Action `idea/approved` → session Aider → PR → CI + relances auto (max 3) → `ship/pr` ; en parallèle, ta porte 2 sur la PR #3 (merger ou pas).
 
 ## Décisions en attente
 - Protection de branche (bloquée : GitHub Pro requis sur repo privé). Options : passer `agent-factory` en public (protection gratuite) ou prendre Pro.

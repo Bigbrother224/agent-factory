@@ -1,43 +1,37 @@
-# Étape 3 — Audition de la flotte B : résultats
+# Étape 3 — Audition de la flotte B : RÉSULTATS FINAUX
 
-Date : 2026-11-02 · Issue testée : #2 (TeleBlock, `idea/approved`) · Brief identique : `BRIEF-B.md`
+Contrainte verrouillée par l'humain (2026-11-02) : **zéro service tiers payant** — uniquement le plan Ollama existant. Candidats donc tous libres, tous pilotés par l'API Ollama (`https://ollama.com/v1`, clé Trousseau `pi-ollama`), même brief (`BRIEF-B.md`), même modèle (`glm-5.3:cloud`).
 
 ## Tableau factuel
 
-| Candidat | PR livrée ? | CI verte 1er coup ? | Interventions humaines | Durée | Coût/session | Statut |
-|---|---|---|---|---|---|---|
-| **Codex (OpenAI)** | — | — | 1 (blocage compte) | 0 s (refus immédiat) | — | ❌ **BLOQUÉ** : le compte ChatGPT refuse tous les modèles |
-| **Devin (Cognition)** | — | — | — | — | — | ❌ **BLOQUÉ** : ni CLI ni clé API Cognition sur la machine |
-| **Jules (Google)** | — | — | — | — | — | ❌ **BLOQUÉ** : rien d'installé, aucun accès API |
+| Candidat | PR livrée ? | CI verte ? | Interventions humaines/opérateur | Durée | Coût |
+|---|---|---|---|---|---|
+| **Aider** (libre) | ✅ **PR #3** | ✅ run 41459426998 | **2** (① format udiff requis — 1ʳᵉ session n'a rien appliqué + hallucination de vérif ; ② relance fix tests) | 1602 s en 3 sessions (~27 min utiles) | plan Ollama seul |
+| **OpenHands** (libre, Docker) | ❌ **RIEN** | — | 2 (image dérivée Dockerfile requis car entrypoint descend de root ; sandbox build) | 4417 s (60/60 itérations, état ERROR) | plan Ollama seul (60 itérations consommées) |
+| **SWE-agent** (libre) | non évalué | — | installé (`~/.local/bin/sweagent`), run non tenté dans le budget temps du tour | — | — |
+| ~~Devin / Codex / Jules~~ | — | — | — | — | **exclus par l'humain : payants** |
 
-## Codex — diagnostic complet (réel)
+## Détails factuels
 
-- CLI 0.146.0 → **mise à jour 0.166.0** (faite ce jour) : le problème persiste, donc ce n'est pas la version.
-- Auth : mode ChatGPT, handshake OK (`HTTP 101 Switching Protocols`), tokens du 2026-10-31.
-- Erreur serveur, identique pour tous les modèles testés (`gpt-6-astra`, `gpt-5.2-codex`, `gpt-5.2`, `gpt-5.1-codex`, `gpt-6`, `gpt-6.1`, `gpt-5.5`, `gpt-5.3-codex`, `gpt-5.2-codex-max`) :
-  > `The '<modèle>' model is not supported when using Codex with a ChatGPT account.`
-- Dernière session Codex réellement fonctionnelle : **juin 2026** (sessions `~/.codex/sessions/2026/06/…`). Plus aucun usage depuis.
-- Conclusion : l'accès Codex du compte ChatGPT a cessé entre juin et aujourd'hui (abonnement Plus/Pro non renouvelé, ou changement de plan). Rien de résolvable côté machine.
+### Aider 0.86.2 — VAINQUEUR
+- Session 1 (glm-5.3-flash, format `whole`) : 463 s, **zéro fichier appliqué** (format d'édition non suivi), et le modèle a **affirmé « résultat vert » sans avoir exécuté verify.sh** — hallucination de vérification détectée par l'arbitre.
+- Session 2 (glm-5.3, format `udiff`) : 629 s, 10 fichiers, structure complète (main.go + internal/dns, profile, rules, sni + tests) — mais `go test` ROUGE (`sni_test`).
+- Session 3 (relance standard de l'usine `verify/failed`→B) : 510 s avec `--test-cmd ./verify.sh teleblock --auto-test`, **corrigé seul jusqu'au vert**.
+- CI GitHub verte sur PR #3 au premier dépôt. Livrable complet : résolveur DNS par profil + parseur ClientHello réel + règles par marque + 24 tests.
 
-## Ce qu'il faut pour débloquer (une seule de ces trois options)
+### OpenHands — ÉCHEC
+- Setup lourd sur macOS : image 1.33 Go + entrypoint qui force l'utilisateur non-root → il fallut une image dérivée (`openhands-audition:local`) avec client docker statique + buildx préinstallés.
+- Run réel : 60 itérations (max) atteintes en 4417 s, **aucun fichier créé** dans le workspace. Modèle/agent incapables de converger sur la tâche dans le budget.
+- Log complet : `/tmp/audition-openhands.log`.
 
-1. **Codex** : vérifier que l'abonnement ChatGPT couvre Codex, puis `codex logout && codex login` (auth navigateur — à toi de le faire).
-2. **Devin** : créer une clé API sur api.devin.ai (facturé à l'ACU) et la fournir.
-3. **Jules** : accès Google (jules.google) + clé API.
+## VERDICT (go/no-go de l'étape 3)
 
-## Reprise de l'audition (quand une option est débloquée)
-
-```bash
-cd ~/Projects/factory
-git checkout -b audition/<candidat>-teleblock
-codex exec --skip-git-repo-check -s workspace-write "$(cat audition/BRIEF-B.md)"   # ou l'équivalent Devin/Jules
-./verify.sh teleblock   # l'arbitre juge le livrable
-git add -A && git commit -m "audition <candidat> : teleblock MVP" && git push -u origin audition/<candidat>-teleblock
-gh pr create --fill
+**La flotte B = Aider**, configuration verrouillée :
 ```
-
-Puis remplir le tableau ci-dessus avec les métriques réelles : PR livrée ? CI verte du 1er coup (`gh pr checks`) ? interventions humaines (comptées) ? durée ? coût ?
-
-## Décision en attente (porte humaine)
-
-L'audition ne peut pas désigner de gagnant sans au moins un candidat fonctionnel. Le go/no-go de l'étape 3 est suspendu au déblocage d'une des trois options ci-dessus.
+aider --model openai/glm-5.3:cloud --openai-api-base https://ollama.com/v1 \
+  --weak-model openai/glm-5.3-flash:cloud --edit-format udiff --yes-always \
+  --test-cmd "./verify.sh <projet>" --auto-test --message "<tâche>"
+```
+- Gratuit (libre), git-native (commits + PR), auto-test branché sur l'arbitre → boucle `verify/failed` autonome intégrée.
+- Point de vigilance usine : toujours brancher `--test-cmd` sur `verify.sh` + l'arbitre CI en bout de chaîne, car le modèle peut **halluciner une vérification** — seul l'arbitre froid dit la vérité.
+- OpenHands : écarté (non-convergence). SWE-agent : disponible pour une audition ultérieure si on veut un challenger, une commande prête suffit.
