@@ -94,7 +94,7 @@ jobs:
             git add -A
             git commit -m "flotte B : $SLUG (MVP, verify.sh vert)" --allow-empty || true
             git checkout -b "fleet/$SLUG"
-            git push -u origin "fleet/$SLUG"
+            git push -u origin "fleet/$SLUG" --force
             {
               echo "Livrable de la flotte B (Aider × glm-5.3, plan Ollama) pour l'issue #$ISSUE_NUMBER."
               echo

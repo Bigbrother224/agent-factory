@@ -12,7 +12,8 @@ Dernière mise à jour : 2026-11-02
 1. **[VALIDÉE] Dépôt + arbitre froid** : repo privé `Bigbrother224/agent-factory`, `ideas/`, `verify.sh`, CI qui refuse les PR rouges, 6 labels. Preuve : PR #1 défaillante → run 41451930498 = failure.
 2. **[VALIDÉE] Groupe A branché** : `scripts/veille.sh` (digest live HN+GitHub sourcé) + scout pi-team lecture-seule → `ideas/AAAA-MM-JJ-slug.md` → issue `idea/draft`. Cron 08:30 UTC (`scripts/scout-daily.sh`, idempotent, off-peak −50%).
 3. **[VALIDÉE] Audition de B** : contrainte « zéro payant, plan Ollama seul » (décision humaine 2026-11-02). Aider ✅ (PR #3, CI verte run 41459426998, 2 relances) · OpenHands ❌ (0 livré en 4417 s / 60 itérations max) · SWE-agent installé non évalué. Devin/Codex/Jules exclus (payants). **Verdict : flotte B = Aider** (config verrouillée dans `audition/RESULTATS.md`).
-4. **[PROCHAINE] Brancher B et C** : workflow GitHub `idea/approved` → session Aider (commande dans `audition/RESULTATS.md`) ; PR → `verify.sh` + revue C ; `verify/failed` → relance (max 3) ; `verify/ok` → `ship/pr` → porte 2.
+4. **[BRANCHÉE — validée sur l'issue de test #4] Brancher B et C** : workflow `fleet.yml` — `idea/approved` → session Aider auto dans le runner GitHub (brief = `fleet/CONTRAT-B.md` + spec issue, modèle `glm-5.3:cloud` via secret `OLLAMA_API_KEY`) → arbitre entre 3 tentatives max → branche `fleet/<slug>` → PR → attente CI → `verify/ok` sur la PR + `ship/pr` sur l'issue → porte 2 humaine. Preuve : issue #4 → run 41514787497 → PR #5, CI verte (run 41516914883), livrable écrit 100% sans intervention.
+   Réglages posés : secret `OLLAMA_API_KEY` dans le repo · `can_approve_pull_request_reviews=true` (Actions peut créer des PRs) · push `--force` sur branches fleet (idempotence).
 5. Première idée réelle en boucle complète + métrique : interventions humaines ≤ 2 par cycle.
 
 ## Fait — étape 1 (2026-11-02)
@@ -27,13 +28,20 @@ Dernière mise à jour : 2026-11-02
 - Cron installé : `30 8 * * *` UTC, log dans `.veille/cron.log`.
 
 ## Fait — tours 3-4 (2026-11-02)
+- **Porte 2 passée sur #2** : PR #3 (TeleBlock MVP, Aider) mergée → `projects/teleblock/` sur main.
 - Issue #2 enrichie (différenciation Pi-hole explicite + installation 3 chemins) et **approuvée** (porte 1). Brief d'audition identique : `audition/BRIEF-B.md`.
 - Décision humaine : **zéro payant** → candidats libres pilotés par l'API Ollama (glm-5.3:cloud). Devin/Codex/Jules exclus.
 - Audition réelle : **Aider VAINQUEUR** — PR #3 livrée, CI GitHub verte (run 41459426998), 2 relances opérateur ; hallucination de vérif détectée en session 1 (l'arbitre seul dit la vérité). **OpenHands : échec** (0 fichier en 4417 s, 60/60 itérations) ; worktree nettoyé. SWE-agent installé, non évalué (budget temps).
 - Verdict go/no-go : **flotte B = Aider**, config verrouillée dans `audition/RESULTATS.md`.
 
+## Fait — tour 5 (étape 4, ce tour)
+- Workflow `.github/workflows/fleet.yml` + `fleet/CONTRAT-B.md` + `fleet/slugify.py` : cycle complet branché.
+- Test end-to-end réel sur l'issue #4 (MotDuJour) : session Aider 100% autonome dans le runner (brief → code → verify.sh VERT → branche poussée). Deux réglages d'infra posés en route : permission Actions de créer des PRs ; `--force` sur les pushes fleet (idempotence des reruns).
+- PR #5 ouverte, CI verte (run 41516914883), labels `verify/ok` + `ship/pr` posés — **en attente de ta porte 2**.
+- Resté à faire dans ce circuit : la revue lecture-seule du groupe C (l'humain relit la PR au merge) — pour l'instant C = CI seul.
+
 ## Prochaine étape
-Étape 4 : brancher le cycle complet — GitHub Action `idea/approved` → session Aider → PR → CI + relances auto (max 3) → `ship/pr` ; en parallèle, ta porte 2 sur la PR #3 (merger ou pas).
+Porte 2 : trancher la PR #5 (`gh pr merge 5 -R Bigbrother224/agent-factory` ou rejet). Ensuite, l'usine tourne seule : le cron scout (08:30 UTC) poste une idée/jour, tu approuves (`idea/approved`), la flotte construit, la CI arbitre, tu merges.
 
 ## Décisions en attente
 - Protection de branche (bloquée : GitHub Pro requis sur repo privé). Options : passer `agent-factory` en public (protection gratuite) ou prendre Pro.
