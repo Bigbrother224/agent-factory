@@ -34,9 +34,12 @@ jobs:
       - name: Outils (aider + identité git)
         run: |
           chmod +x verify.sh
-          pipx install aider-chat
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          uv tool install --python 3.12 aider-chat
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           git config user.name "fleet-b-aider"
           git config user.email "actions@users.noreply.github.com"
+          aider --version
 
       - name: Brief (contrat B + spec de l'issue)
         env:
