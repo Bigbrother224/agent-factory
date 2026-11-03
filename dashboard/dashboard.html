@@ -10,7 +10,7 @@
 <style>
 /* Mode sombre verrouillé : outil de pilotage consulté d'un coup d'œil, souvent le soir.
    Système de rayons documenté : cartes 10px, contrôles 8px, puces pleine.
-   Échelle z : toasts = 30. Rien d'autre ne superpose. */
+   Échelle z : toasts = 30, modale revue = 20 (le toast reste au-dessus). */
 
 :root {
   --bg:#101014; --surface:#17171c; --surface-2:#1d1d23; --border:#2a2a31; --border-hov:#3d3d46;
@@ -140,6 +140,11 @@ button.danger { color:var(--bad); border-color:transparent; background:var(--bad
 button.mini { padding:5px 10px; font-size:11.5px; }
 .actions { display:flex; flex-wrap:wrap; gap:6px; margin-top:11px; }
 
+.chip[role="button"] { cursor:pointer; transition:border-color var(--dur) var(--ease); }
+@media (hover:hover) and (pointer:fine) {
+  .chip[role="button"]:hover { border-color:var(--border-hov); color:var(--text); }
+}
+
 /* méta bas de carte */
 .meta { display:flex; flex-wrap:wrap; gap:4px 14px; margin-top:11px; padding-top:9px; border-top:1px solid var(--border); color:var(--faint); font-size:11px; font-family:var(--mono); }
 .meta a { color:var(--faint); text-decoration:none; }
@@ -188,6 +193,48 @@ button.mini { padding:5px 10px; font-size:11.5px; }
 #toast.ok { border-color:var(--ok); color:var(--ok); }
 #toast.err { border-color:var(--bad); color:var(--bad); }
 
+/* revue kimi — ligne résumé cliquable sur la carte projet */
+.revline { display:flex; align-items:center; flex-wrap:wrap; gap:5px; margin-top:9px; padding:7px 10px; border:1px solid transparent; border-radius:var(--r-ctl); font-size:12px; color:var(--muted); cursor:pointer; transition:border-color var(--dur) var(--ease), background var(--dur) var(--ease); }
+@media (hover:hover) and (pointer:fine) {
+  .revline:hover { border-color:var(--border-hov); background:var(--surface-2); }
+}
+.revline:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+.revline b { font-weight:700; }
+.revline.bad b { color:var(--bad); }
+.revline.ok b { color:var(--ok); }
+
+/* modale revue complète — z:20, toast (30) reste au-dessus */
+.overlay { position:fixed; inset:0; z-index:20; background:rgba(8,8,10,.64); display:flex; align-items:flex-start; justify-content:center; padding:6vh 16px 16px; }
+.overlay[hidden] { display:none; }
+.modal { background:var(--surface); border:1px solid var(--border-hov); border-radius:var(--r-card); width:100%; max-width:780px; max-height:82vh; overflow:auto; padding:18px 20px 14px; box-shadow:0 12px 40px rgba(0,0,0,.5); }
+.modal-top { display:flex; align-items:center; gap:10px; }
+.modal-top h3 { font-size:15px; font-weight:600; }
+.modal-top .when { color:var(--faint); font:400 11px var(--mono); }
+.modal-top .close { margin-left:auto; flex:none; }
+.verdict { display:flex; align-items:center; gap:9px; margin:14px 0 4px; padding:10px 14px; border-radius:var(--r-ctl); font-weight:700; font-size:14px; }
+.verdict.nogo { background:var(--bad-dim); color:var(--bad); }
+.verdict.go { background:var(--ok-dim); color:var(--ok); }
+.mh4 { font-size:11px; font-weight:600; color:var(--faint); text-transform:uppercase; letter-spacing:.06em; margin:16px 0 6px; }
+.prob { display:flex; gap:9px; align-items:flex-start; padding:9px 2px; border-top:1px solid var(--border); font-size:13px; line-height:1.55; }
+.prob:first-of-type { border-top:none; }
+.prob .sev { flex:none; font-size:10.5px; font-weight:700; padding:2px 8px; border-radius:var(--r-chip); margin-top:2px; }
+.sev.bloquant { background:var(--bad-dim); color:var(--bad); }
+.sev.serieux { background:var(--warn-dim); color:var(--warn); }
+.sev.mineur { background:var(--surface-2); color:var(--muted); border:1px solid var(--border); }
+.prob p { color:var(--muted); }
+.prob code { font:400 12px var(--mono); background:var(--surface-2); border-radius:5px; padding:1px 5px; }
+.note-q { display:grid; grid-template-columns:170px 44px 1fr; gap:10px; align-items:baseline; padding:8px 2px; border-top:1px solid var(--border); font-size:12.5px; }
+.note-q:first-of-type { border-top:none; }
+.note-q .dim { color:var(--text); font-weight:500; }
+.note-q .score { font:600 12px var(--mono); color:var(--muted); }
+.note-q .bar { height:4px; border-radius:2px; background:var(--surface-2); overflow:hidden; margin-top:5px; }
+.note-q .bar i { display:block; height:100%; background:var(--accent); }
+.note-q .why { color:var(--faint); font-size:12px; margin-top:4px; line-height:1.5; }
+.modal .bilan { margin-top:6px; padding:10px 12px; background:var(--surface-2); border-radius:var(--r-ctl); color:var(--muted); font-size:13px; line-height:1.55; }
+.modal .raw { margin-top:8px; white-space:pre-wrap; font:400 12px/1.6 var(--mono); color:var(--muted); }
+.modal .gh-link { display:inline-flex; align-items:center; gap:5px; margin-top:14px; font-size:12.5px; font-weight:600; color:var(--muted); text-decoration:none; border-bottom:1px solid var(--border-hov); }
+.modal .gh-link:hover { color:var(--text); border-color:var(--text); }
+
 footer { padding:26px 20px 0; color:var(--faint); font-size:11.5px; text-align:center; }
 
 /* atelier — développement de l'usine, séparé de la production */
@@ -219,6 +266,19 @@ footer { padding:26px 20px 0; color:var(--faint); font-size:11.5px; text-align:c
 
 <div id="toast" role="status" aria-live="polite"></div>
 <div id="atelier-note" class="atelier-note"></div>
+
+<div class="overlay" id="overlay" hidden role="dialog" aria-modal="true" aria-labelledby="modal-title" onclick="if(event.target===this)closeReview()">
+  <div class="modal">
+    <div class="modal-top">
+      <h3 id="modal-title">Revue du groupe C</h3>
+      <span class="when" id="modal-when"></span>
+      <button class="close mini" onclick="closeReview()" aria-label="Fermer la revue">
+        <svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+      </button>
+    </div>
+    <div id="modal-body"></div>
+  </div>
+</div>
 
 <script>
 const REPO='Bigbrother224/agent-factory';
@@ -257,6 +317,17 @@ function slugify(t){
 }
 const hasL=(o,n)=>(o.labels||[]).some(l=>l.name===n);
 const axeOf=i=>{const l=(i.labels||[]).find(l=>l.name.startsWith('axe/'));return l?l.name.slice(4):null;};
+/* PR liée à une issue : le slug de branche (3 mots) peut différer du slug
+   complet du titre (chantier/teleblock vs teleblock-pare-feu) — même
+   tolérance que la recherche de roadmap côté serveur. */
+function prFor(i,prs){
+  const slug=slugify(i.title), t=i.title.toLowerCase();
+  const m=p=>{const bs=(p.headRefName||'').split('/').pop();
+    return /^(fleet|chantier)\//.test(p.headRefName||'')&&bs&&(bs===slug||slug.includes(bs)||t.includes(bs));};
+  return prs.find(p=>p.state==='OPEN'&&m(p))
+    || prs.find(m)
+    || prs.find(p=>p.headRefName==='fleet/'+slug||p.headRefName==='chantier/'+slug);
+}
 
 function toast(m,ok){const t=document.getElementById('toast');t.textContent=m;
   t.className=ok?'ok':'err';t.style.display='block';setTimeout(()=>t.style.display='none',4500);}
@@ -279,7 +350,7 @@ function sendNote(ev,n){
   act('note',n,{text,mode},mode==='fix'?'Envoyer !fix à la flotte':'Publier la note');
 }
 
-function chip(txt,cls,ic){return `<span class="chip ${cls}">${ic?icon(ic,12):''}${txt}</span>`;}
+function chip(txt,cls,ic,attrs){return `<span class="chip ${cls}" ${attrs||''}>${ic?icon(ic,12):''}${txt}</span>`;}
 function badgesFor(i,pr,ci,rev,stage){
   const c=[];
   if(stage==='shipped')c.push(chip('shippé en main','ok','check'));
@@ -292,11 +363,44 @@ function badgesFor(i,pr,ci,rev,stage){
     if(pr&&pr.state==='OPEN'){
       c.push({'green':chip('CI verte','ok','check'),'red':chip('CI rouge','bad','x'),
         'pending':chip('CI en cours','warn','alert'),'none':chip('CI : rien','dim')}[ci]);
-      if(rev)c.push(rev.verdict==='GO'?chip('revue GO','ok','check'):chip('revue '+esc(rev.verdict),'bad','x'));
+      if(rev){const open=`role="button" tabindex="0" onclick="showReview(${pr.number})" title="Ouvrir la revue complète"`;
+        c.push(rev.verdict==='GO'?chip('revue GO','ok','check',open):chip('revue '+esc(rev.verdict),'bad','x',open));}
     }
   }
   return c.join('');
 }
+/* Revue kimi : compte les problèmes par gravité */
+function sevCounts(r){const c={BLOQUANT:0,SÉRIEUX:0,MINEUR:0,total:0};
+  (r.problems||[]).forEach(p=>{c.total++;
+    if(/^BLOQUANT/.test(p.sev))c.BLOQUANT++;else if(/^SÉRIEUX/.test(p.sev))c.SÉRIEUX++;else c.MINEUR++;});
+  return c;}
+function sevCls(s){return /^BLOQUANT/.test(s)?'bloquant':/^SÉRIEUX/.test(s)?'serieux':'mineur';}
+/* markdown inline léger : **gras** et `code`, après échappement HTML */
+const mdInline=s=>esc(s).replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>').replace(/`([^`]+)`/g,'<code>$1</code>');
+
+function showReview(n){
+  const r=S&&S.reviews&&S.reviews[n]; if(!r)return;
+  const c=sevCounts(r);
+  const sum=c.total?`${c.BLOQUANT} bloquant${c.BLOQUANT>1?'s':''}, ${c.SÉRIEUX} sérieux, ${c.MINEUR} mineur${c.MINEUR>1?'s':''}`:'';
+  const probs=c.total
+    ? r.problems.map(p=>`<div class="prob"><span class="sev ${sevCls(p.sev)}">${esc(p.sev)}</span><p>${mdInline(p.text)}</p></div>`).join('')
+    : (r.raw?`<div class="raw">${esc(r.raw)}</div>`:'<p class="raw">Pas de détails sur cette revue.</p>');
+  const notes=(r.notes||[]).map(q=>`<div class="note-q"><span class="dim">${esc(q.dim)}</span><span class="score">${q.score}/5</span>`+
+    `<div><div class="bar"><i style="width:${q.score*20}%"></i></div><div class="why">${mdInline(q.text)}</div></div></div>`).join('');
+  document.getElementById('modal-title').textContent='Revue kimi · PR #'+n;
+  document.getElementById('modal-when').textContent=r.at?'le '+new Date(r.at).toLocaleString('fr-FR'):'';
+  document.getElementById('modal-body').innerHTML=
+    `<div class="verdict ${r.verdict==='GO'?'go':'nogo'}">${icon(r.verdict==='GO'?'check':'x',16)} ${esc(r.verdict)}${sum?' · '+esc(sum):''}</div>`+
+    (c.total?`<div class="mh4">Problèmes (du plus grave au moins grave)</div>${probs}`:probs)+
+    (notes?`<div class="mh4">Notes qualité</div>${notes}`:'')+
+    (r.bilan?`<div class="mh4">Bilan</div><p class="bilan">${mdInline(r.bilan)}</p>`:'')+
+    (r.url?`<a class="gh-link" href="${esc(r.url)}" target="_blank" rel="noopener">${icon('out',12)} Voir sur GitHub</a>`:'');
+  document.getElementById('overlay').hidden=false;
+  const cl=document.querySelector('#overlay .close'); if(cl)cl.focus();
+}
+function closeReview(){document.getElementById('overlay').hidden=true;}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeReview();});
+
 function timeline(stage,ciOk){
   const cur={idea:0,p1done:1,building:2,failed:2,ship:3,shipped:4}[stage]??0;
   const names=['Scout','Porte 1','Flotte','CI+revue','Porte 2'];
@@ -310,9 +414,7 @@ function timeline(stage,ciOk){
 }
 function projectCard(i,s){
   const slug=slugify(i.title), axe=axeOf(i)||'';
-  const pr=s.prs.find(p=>(p.headRefName==='fleet/'+slug||p.headRefName==='chantier/'+slug)&&p.state==='OPEN')
-        || s.prs.find(p=>p.headRefName==='fleet/'+slug)
-        || s.prs.find(p=>p.headRefName==='chantier/'+slug);
+  const pr=prFor(i,s.prs);
   const ci=s.ci?.[pr?.number], rev=s.reviews?.[pr?.number];
   const stage=pr&&pr.state==='MERGED'?'shipped'
     :hasL(i,'verify/failed')?'failed'
@@ -321,7 +423,7 @@ function projectCard(i,s){
     :hasL(i,'idea/approved')?'p1done'
     :'idea';
   const nbCom=(s.comments?.[i.number]||[]).length;
-  const nbRuns=(s.runs||[]).filter(r=>r.headBranch==='fleet/'+slug||r.headBranch==='chantier/'+slug||r.displayTitle===i.title).length;
+  const nbRuns=(s.runs||[]).filter(r=>r.headBranch==='fleet/'+slug||r.headBranch==='chantier/'+slug||r.headBranch===pr?.headRefName||r.displayTitle===i.title).length;
 
   const feed=(s.comments?.[i.number]||[]).slice(-3).map(c=>{
     const isFix=/^!fix/.test(c.body);
@@ -353,6 +455,13 @@ function projectCard(i,s){
       </div>
     </form>`:'';
 
+  const revLine=rev?(()=>{const c=sevCounts(rev);
+    const txt=rev.verdict==='GO'?'RAS, prête à merger'
+      :(c.total?`${c.BLOQUANT} bloquant${c.BLOQUANT>1?'s':''}, ${c.SÉRIEUX} sérieux, ${c.MINEUR} mineur${c.MINEUR>1?'s':''} · ouvrir le détail`:'détails à lire');
+    const open=`onclick="showReview(${pr.number})" onkeydown="if(event.key==='Enter')showReview(${pr.number})"`;
+    return `<div class="revline ${rev.verdict==='GO'?'ok':'bad'}" role="button" tabindex="0" ${open} title="Ouvrir la revue complète">`+
+      `${icon('msg',13)} Revue kimi ${ago(rev.at)} : <b>${esc(rev.verdict)}</b> · ${esc(txt)}</div>`;})():'';
+
   const metaBits=[
     `<span title="messages">${icon('msg',12)} ${nbCom}</span>`,
     `<span title="runs liés">${icon('flame',12)} ${nbRuns}</span>`,
@@ -365,6 +474,7 @@ function projectCard(i,s){
     <div class="path">projects/${esc(axe)}/${esc(slug)}/ · maj ${ago(i.updatedAt)}</div>
     <div class="chips">${badgesFor(i,pr,ci,rev,stage)}</div>
     ${timeline(stage,ci==='green')}
+    ${revLine}
     ${feed?`<div class="feed">${feed}</div>`:''}
     ${composer}
     ${actions?`<div class="actions">${actions}</div>`:''}
@@ -388,7 +498,9 @@ function axeColumn(key,s,projects){
     ${cards||empt}${shipHtml}
   </section>`;
 }
+let S=null;
 function render(s){
+  S=s;
   const ld=document.getElementById('livedot');
   document.getElementById('repolink').textContent=s.repo;
   document.getElementById('repolink').href='https://github.com/'+s.repo;
@@ -438,13 +550,17 @@ function render(s){
       `</td></tr>`;}).join('')
     :'<tr><td class="mono">Aucun run récent.</td></tr>';
   const rv=Object.entries(s.reviews||{});
-  const revHtml=rv.length?rv.map(([n,r])=>`<tr><td>PR #${n}</td>`+
-    `<td><span class="pill ${r.verdict==='GO'?'ok':'bad'}">${esc(r.verdict)}</span></td>`+
-    `<td>${esc(r.excerpt.slice(0,100))}…</td></tr>`).join('')
+  const revHtml=rv.length?rv.map(([n,r])=>{const c=sevCounts(r);
+    const sum=c.total?`${c.BLOQUANT} bloq. · ${c.SÉRIEUX} sérieux · ${c.MINEUR} min.`:'';
+    return `<tr><td><a class="mono" href="https://github.com/${REPO}/pull/${n}" target="_blank" rel="noopener">PR #${n}</a></td>`+
+      `<td><span class="pill ${r.verdict==='GO'?'ok':'bad'}">${esc(r.verdict)}</span></td>`+
+      `<td>${c.total?esc(sum):esc((r.raw||'').replace(/[#*`>]/g,'').slice(0,80))+'…'}</td>`+
+      `<td class="mono">${r.at?ago(r.at):''}</td>`+
+      `<td><button class="mini" onclick="showReview(${n})">${icon('msg',11)} Ouvrir</button></td></tr>`;}).join('')
     :'<tr><td class="mono">Aucune revue en attente.</td></tr>';
   document.getElementById('panels').innerHTML=
     `<div class="panel"><h3>Runs des agents</h3><table><thead><tr><th>Workflow</th><th>Déclencheur</th><th>Âge</th><th>Statut</th></tr></thead><tbody>${runsHtml}</tbody></table></div>`+
-    `<div class="panel"><h3>Revues du groupe C</h3><table><thead><tr><th>PR</th><th>Verdict</th><th>Extrait</th></tr></thead><tbody>${revHtml}</tbody></table></div>`;
+    `<div class="panel"><h3>Revues du groupe C</h3><table><thead><tr><th>PR</th><th>Verdict</th><th>Problèmes</th><th>Âge</th><th></th></tr></thead><tbody>${revHtml}</tbody></table></div>`;
   renderAtelier(atelier);
 }
 function skeletons(){

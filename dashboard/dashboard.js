@@ -52,6 +52,35 @@ function parseRoadmap(md) {
   return { total: lines.length, done, current, finished: !nxt };
 }
 
+/* Revue kimi : structure complète — verdict, problèmes par gravité,
+   notes qualité par dimension, bilan. Plus d'extrait tronqué :
+   l'humain doit pouvoir TOUT lire depuis le dashboard. */
+function parseReview(body, verdict, comment) {
+  const problems = [];
+  const notes = [];
+  let bilan = '';
+  let section = '';
+  for (const line of String(body).split(/\r?\n/)) {
+    const h = line.match(/^#{2,3}\s+(.+?)\s*$/);
+    if (h) {
+      const t = h[1].toLowerCase();
+      section = /probl/.test(t) ? 'problems'
+        : /note/.test(t) ? 'notes'
+        : /bilan/.test(t) ? 'bilan' : 'verdict';
+      continue;
+    }
+    if (section === 'bilan') { bilan += (bilan ? ' ' : '') + line.trim(); continue; }
+    const p = line.match(/^-\s*\[([^\]]+)\]\s*(.+)$/);
+    if (p && section === 'problems') { problems.push({ sev: p[1].trim().toUpperCase(), text: p[2].trim() }); continue; }
+    const n = line.match(/^-\s*(.+?)\s*:\s*(\d)\s*\/\s*5\s*[—–-]\s*(.+)$/);
+    if (n && section === 'notes') { notes.push({ dim: n[1].trim(), score: parseInt(n[2], 10), text: n[3].trim() }); }
+  }
+  return {
+    verdict, at: comment.createdAt, url: comment.url,
+    problems, notes, bilan: bilan.trim(), raw: String(body),
+  };
+}
+
 async function fetchState() {
   const state = { repo: REPO, when: new Date().toISOString(), errors: [], axes: AXES };
   const [issues, prs, runs] = await Promise.all([
@@ -126,13 +155,13 @@ async function fetchState() {
       author: c.author ? c.author.login : '?', at: c.createdAt, body: c.body || '',
     }));
     for (let j = comments.length - 1; j >= 0; j--) {
-      const b = comments[j].body || '';
+      const c = comments[j];
+      const b = c.body || '';
       if (b.startsWith('## Revue du groupe C')) {
         const m = b.match(/\*\*(GO|NO-GO|NO GO)\*\*/i);
-        state.reviews[pr.number] = m ? {
-          verdict: m[1].toUpperCase().replace('NO GO', 'NO-GO'),
-          excerpt: b.replace(/[#*`>]/g, '').slice(0, 260),
-        } : { verdict: '?', excerpt: b.slice(0, 260) };
+        state.reviews[pr.number] = m
+          ? parseReview(b, m[1].toUpperCase().replace('NO GO', 'NO-GO'), c)
+          : { verdict: '?', at: c.createdAt, url: c.url, problems: [], notes: [], bilan: '', raw: b };
         break;
       }
     }
@@ -157,6 +186,14 @@ async function fetchState() {
       const rm = parseRoadmap(md);
       if (rm) state.roadmap[p.number] = rm;
     } catch (e) { /* roadmap illisible : ignorée */ }
+  }
+
+  /* --- Dernier digest de veille : ideas/YYYY-MM-DD-*.md le plus récent --- */
+  state.lastDigest = null;
+  const dg = await ghApi('contents/ideas');
+  if (dg.ok && Array.isArray(dg.data)) {
+    const dates = dg.data.map((f) => ((f.name || '').match(/^(\d{4}-\d{2}-\d{2})-/) || [])[1]).filter(Boolean).sort();
+    if (dates.length) state.lastDigest = dates[dates.length - 1];
   }
 
   /* --- Portfolio : contenu réel de projects/<axe>/ sur main --- */
