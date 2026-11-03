@@ -2,210 +2,334 @@
 <html lang="fr">
 <head>
 <meta charset="utf-8">
-<title>🏭 Usine à idées — agent-factory</title>
+<title>🏭 Usine à idées — portfolio & pipeline</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
   :root {
-    --bg: #0d1117; --panel: #161b22; --border: #30363d; --fg: #c9d1d9;
-    --dim: #8b949e; --green: #3fb950; --red: #f85149; --yellow: #d29922;
-    --blue: #58a6ff; --purple: #bc8cff; --accent: #f0883e;
+    --bg:#0d1117; --panel:#161b22; --border:#30363d; --fg:#c9d1d9;
+    --dim:#8b949e; --green:#3fb950; --red:#f85149; --yellow:#d29922;
+    --blue:#58a6ff; --purple:#bc8cff; --accent:#f0883e;
   }
-  * { box-sizing: border-box; margin: 0; }
-  body { background: var(--bg); color: var(--fg); font: 14px/1.45 -apple-system, 'Segoe UI', sans-serif; padding: 18px; }
-  h1 { font-size: 20px; margin-bottom: 4px; }
-  .sub { color: var(--dim); font-size: 12px; margin-bottom: 14px; }
-  .sub a { color: var(--blue); text-decoration: none; }
-  .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; align-items: start; }
-  @media (max-width: 1100px) { .grid { grid-template-columns: repeat(2, 1fr); } }
-  @media (max-width: 700px)  { .grid { grid-template-columns: 1fr; } }
-  .col { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 12px; }
-  .col h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .05em; color: var(--dim); margin-bottom: 10px; display: flex; justify-content: space-between; }
-  .col h2 .count { color: var(--accent); font-weight: 700; }
-  .card { border: 1px solid var(--border); border-radius: 8px; padding: 10px; margin-bottom: 10px; background: #0d1117; }
-  .card .title { font-weight: 600; margin-bottom: 6px; }
-  .card .num { color: var(--dim); font-size: 12px; }
-  .labels { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0; }
-  .label { font-size: 11px; padding: 1px 8px; border-radius: 10px; border: 1px solid var(--border); color: var(--dim); }
-  .label.idea\/approved { color: var(--green); border-color: var(--green); }
-  .label.verify\/ok { color: var(--green); border-color: var(--green); }
-  .label.ship\/pr { color: var(--purple); border-color: var(--purple); }
-  .label.idea\/draft { color: var(--yellow); border-color: var(--yellow); }
-  .label.fix\/c-verificateur { color: var(--red); border-color: var(--red); }
-  .badges { display: flex; gap: 6px; flex-wrap: wrap; margin: 6px 0; font-size: 11px; }
-  .badge { padding: 2px 8px; border-radius: 6px; font-weight: 700; }
-  .b-green { background: rgba(63,185,80,.15); color: var(--green); }
-  .b-red { background: rgba(248,81,73,.15); color: var(--red); }
-  .b-yellow { background: rgba(210,153,34,.15); color: var(--yellow); }
-  .b-dim { background: rgba(139,148,158,.12); color: var(--dim); }
-  .b-purple { background: rgba(188,140,255,.15); color: var(--purple); }
-  button { border: none; border-radius: 6px; padding: 6px 10px; font-size: 12px; font-weight: 600; cursor: pointer; margin-right: 6px; margin-top: 6px; }
-  .btn-approve { background: #238636; color: #fff; }
-  .btn-merge { background: #8957e5; color: #fff; }
-  .btn-danger { background: #21262d; color: var(--red); border: 1px solid var(--red); }
-  .btn-ghost { background: #21262d; color: var(--fg); border: 1px solid var(--border); }
-  button:disabled { opacity: .4; cursor: not-allowed; }
-  .bottom { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 14px; }
-  @media (max-width: 900px) { .bottom { grid-template-columns: 1fr; } }
-  table { width: 100%; border-collapse: collapse; font-size: 12px; }
-  th, td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--border); }
-  th { color: var(--dim); font-weight: 600; }
-  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
-  .d-green { background: var(--green); } .d-red { background: var(--red); }
-  .d-yellow { background: var(--yellow); animation: pulse 1s infinite alternate; }
-  .d-dim { background: var(--border); }
-  @keyframes pulse { to { opacity: .35; } }
-  #toast { position: fixed; bottom: 18px; right: 18px; padding: 10px 16px; border-radius: 8px; font-weight: 600; display: none; z-index: 10; }
-  .t-ok { background: #238636; color: #fff; } .t-err { background: var(--red); color: #fff; }
-  .empty { color: var(--dim); font-size: 12px; font-style: italic; padding: 8px 0; }
-  .refresh { color: var(--dim); font-size: 12px; }
-  .spin { display: inline-block; animation: pulse .6s infinite alternate; }
+  * { box-sizing:border-box; margin:0; }
+  body { background:var(--bg); color:var(--fg); font:14px/1.45 -apple-system,'Segoe UI',sans-serif; padding:18px; }
+  h1 { font-size:20px; }
+  .sub { color:var(--dim); font-size:12px; margin:2px 0 12px; }
+  .sub a { color:var(--blue); text-decoration:none; }
+  .spin { animation:pulse 1s infinite alternate; }
+
+  /* pipeline strip */
+  .strip { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px; }
+  .chip { background:var(--panel); border:1px solid var(--border); border-radius:8px; padding:6px 12px; font-size:12px; display:flex; align-items:center; gap:7px; }
+  .chip b { font-size:16px; color:var(--accent); }
+  .chip.alert b { color:var(--red); } .chip.good b { color:var(--green); }
+
+  /* axes */
+  .axes { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; align-items:start; }
+  @media (max-width:1100px){ .axes { grid-template-columns:1fr; } }
+  .axe { background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:12px; }
+  .axe h2 { font-size:13px; text-transform:uppercase; letter-spacing:.05em; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center; }
+  .axe h2 .count { font-weight:700; font-size:15px; }
+  .ai .count { color:#a371f7; } .emb .count { color:#3fb950; } .exp .count { color:#f85149; }
+  .axe .tag { font-size:11px; color:var(--dim); font-weight:400; text-transform:none; letter-spacing:0; }
+
+  /* carte projet vivante */
+  .card { background:#0d1117; border:1px solid var(--border); border-radius:8px; padding:12px; margin-bottom:12px; }
+  .card .head { display:flex; justify-content:space-between; gap:8px; align-items:flex-start; }
+  .card .title { font-weight:700; margin-bottom:2px; }
+  .card .path { color:var(--dim); font-size:11px; font-family:ui-monospace,monospace; }
+  .badges { display:flex; gap:5px; flex-wrap:wrap; margin:8px 0 6px; font-size:11px; }
+  .badge { padding:2px 8px; border-radius:6px; font-weight:700; }
+  .b-green { background:rgba(63,185,80,.15); color:var(--green); }
+  .b-red { background:rgba(248,81,73,.15); color:var(--red); }
+  .b-yellow { background:rgba(210,153,34,.15); color:var(--yellow); }
+  .b-dim { background:rgba(139,148,158,.12); color:var(--dim); }
+  .b-purple { background:rgba(188,140,255,.15); color:var(--purple); }
+  .b-blue { background:rgba(88,166,255,.15); color:var(--blue); }
+
+  /* timeline cycle */
+  .tl { display:flex; align-items:center; gap:2px; margin:8px 0 10px; font-size:10px; color:var(--dim); }
+  .tl .step { display:flex; flex-direction:column; align-items:center; flex:1; gap:3px; }
+  .tl .dot { width:11px; height:11px; border-radius:50%; background:var(--border); }
+  .tl .step.done .dot { background:var(--green); }
+  .tl .step.now .dot { background:var(--accent); box-shadow:0 0 8px var(--accent); }
+  .tl .step.fail .dot { background:var(--red); }
+  .tl .bar { height:2px; flex:1; background:var(--border); margin-top:-12px; }
+  .tl .bar.done { background:var(--green); }
+
+  /* fil de communication */
+  .feed { margin:8px 0; border-left:2px solid var(--border); padding-left:10px; }
+  .msg { margin-bottom:7px; font-size:12px; }
+  .msg .meta { color:var(--dim); font-size:10px; margin-bottom:1px; }
+  .msg .who-you { color:var(--accent); font-weight:700; }
+  .msg .who-bot { color:var(--purple); font-weight:700; }
+  .msg .body { color:var(--fg); white-space:pre-wrap; word-break:break-word; max-height:120px; overflow:hidden; }
+  .msg .body.fix { color:var(--yellow); }
+
+  /* composeur */
+  .composer { display:flex; gap:6px; margin-top:8px; }
+  .composer input { flex:1; background:#161b22; border:1px solid var(--border); border-radius:6px; color:var(--fg); padding:6px 8px; font-size:12px; }
+  .composer input:focus { outline:1px solid var(--accent); }
+  button { border:none; border-radius:6px; padding:6px 10px; font-size:12px; font-weight:700; cursor:pointer; }
+  .btn-approve { background:#238636; color:#fff; }
+  .btn-merge { background:#8957e5; color:#fff; }
+  .btn-fix { background:#9e6a03; color:#fff; }
+  .btn-note { background:#21262d; color:var(--fg); border:1px solid var(--border); }
+  .btn-danger { background:#21262d; color:var(--red); border:1px solid var(--red); }
+  .btn-ghost { background:#21262d; color:var(--fg); border:1px solid var(--border); }
+  .btn-mini { padding:3px 8px; font-size:11px; }
+  .actions { display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; }
+  .stats { color:var(--dim); font-size:11px; margin-top:8px; }
+
+  .shipped { border:1px solid var(--border); border-radius:8px; padding:8px 10px; margin-bottom:8px; font-size:12px; background:#0d1117; }
+  .shipped .s-title { font-weight:600; }
+  .empty { color:var(--dim); font-size:12px; font-style:italic; padding:6px 0; }
+
+  /* infra + bas de page */
+  .bottom { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:14px; }
+  @media (max-width:900px){ .bottom { grid-template-columns:1fr; } }
+  .col { background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:12px; }
+  .col h3 { font-size:13px; text-transform:uppercase; letter-spacing:.05em; color:var(--dim); margin-bottom:8px; }
+  table { width:100%; border-collapse:collapse; font-size:12px; }
+  th,td { text-align:left; padding:4px 6px; border-bottom:1px solid var(--border); vertical-align:top; }
+  th { color:var(--dim); font-weight:600; }
+  .dotc { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:6px; }
+  .d-green{background:var(--green);} .d-red{background:var(--red);} .d-dim{background:var(--border);}
+  .d-yellow{background:var(--yellow); animation:pulse 1s infinite alternate; }
+  #toast { position:fixed; bottom:18px; right:18px; padding:10px 16px; border-radius:8px; font-weight:600; display:none; z-index:10; max-width:420px; }
+  .t-ok{background:#238636;color:#fff;} .t-err{background:var(--red);color:#fff;}
+  @keyframes pulse { to { opacity:.35; } }
+  a { color:var(--blue); }
 </style>
 </head>
 <body>
-<h1>🏭 Usine à idées <span class="refresh" id="when"></span></h1>
-<div class="sub">repo <a id="repolink" href="#" target="_blank">…</a> · GitHub = bus unique · rafraîchissement auto 10 s · <span class="spin" id="live">● live</span></div>
+<h1>🏭 Usine à idées <span class="spin" id="live" style="color:var(--green);font-size:12px">● live</span></h1>
+<div class="sub">repo <a id="repolink" target="_blank" href="#">…</a> · GitHub = bus unique · les agents ne lisent QUE ce qui est sur GitHub — écris-leur via le composeur 💬 de chaque carte · rafraîchi 10 s</div>
 
-<div class="grid" id="cols"></div>
+<div class="strip" id="strip"></div>
+<div class="axes" id="axes"></div>
 
 <div class="bottom">
-  <div class="col">
-    <h2>⚙️ Runs des agents (workflows)</h2>
-    <table id="runs"><tr><td class="empty">chargement…</td></tr></table>
-  </div>
-  <div class="col">
-    <h2>🧪 Revues groupe C (kimi) &amp; audits 2ᵉ agent</h2>
-    <table id="reviews"><tr><td class="empty">chargement…</td></tr></table>
-  </div>
+  <div class="col"><h3>⚙️ Runs des agents</h3><table id="runs"><tr><td class="empty">…</td></tr></table></div>
+  <div class="col"><h3>🧪 Revues groupe C (kimi)</h3><table id="reviews"><tr><td class="empty">…</td></tr></table></div>
 </div>
 
 <div id="toast"></div>
 
 <script>
-const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const REPO='Bigbrother224/agent-factory';
+const AXES=[
+  {key:'ai-automation-and-systems', cls:'ai', name:'AI Automation & Systems'},
+  {key:'embedded-intelligence',    cls:'emb', name:'Embedded Intelligence'},
+  {key:'experimental-computing',    cls:'exp', name:'Experimental Computing'},
+];
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const ago=iso=>{const m=(Date.now()-new Date(iso))/60000;
+  if(m<1)return'à l\'instant'; if(m<60)return Math.round(m)+' min';
+  if(m<1440)return Math.round(m/60)+' h'; return Math.round(m/1440)+' j';};
+function slugify(t){
+  const s=String(t).normalize('NFKD').replace(/[\u0300-\u036f]/g,'')
+    .replace(/[^a-zA-Z0-9]+/g,'-').toLowerCase().replace(/^-+|-+$/g,'');
+  const w=s.split('-').filter(Boolean);
+  return w.slice(0,3).join('-').slice(0,24).replace(/-+$/g,'')||'projet';
+}
+const who=l=>l==='Bigbrother224'?'<span class="who-you">toi</span>'
+  :/github-actions|fleet|users\.noreply/.test(l)?'<span class="who-bot">usine 🤖</span>'
+  :esc(l);
+const hasL=(o,n)=>(o.labels||[]).some(l=>l.name===n);
+const axeOf=i=>{const l=(i.labels||[]).find(l=>l.name.startsWith('axe/'));return l?l.name.slice(4):null;};
 
-function toast(msg, ok) {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.className = ok ? 't-ok' : 't-err';
-  t.style.display = 'block';
-  setTimeout(() => t.style.display = 'none', 4000);
+function toast(m,ok){const t=document.getElementById('toast');t.textContent=m;
+  t.className=ok?'t-ok':'t-err';t.style.display='block';setTimeout(()=>t.style.display='none',4500);}
+
+async function act(type,target,extra,label){
+  if(label&&!confirm(label+' ?'))return;
+  try{const r=await fetch('/api/action',{method:'POST',headers:{'content-type':'application/json'},
+    body:JSON.stringify({type,target,extra})});
+    const j=await r.json();
+    toast(j.ok?'✔ '+label:'✖ '+(j.error||'échec'),j.ok);
+    if(j.ok)refresh();
+  }catch(e){toast('✖ '+e.message,false);}
+}
+function sendNote(ev,n){
+  ev.preventDefault();
+  const input=ev.target.querySelector('input');
+  const text=input.value.trim(); if(!text){toast('note vide',false);return;}
+  const mode=ev.submitter?ev.submitter.dataset.mode:'note';
+  input.value='';
+  act('note',n,{text,mode},mode==='fix'?'🔧 Envoyer !fix à la flotte':'💬 Publier la note');
 }
 
-async function act(type, target, extra, label) {
-  if (!confirm(label + ' ?')) return;
-  try {
-    const r = await fetch('/api/action', {
-      method: 'POST', headers: {'content-type': 'application/json'},
-      body: JSON.stringify({ type, target, extra })
-    });
-    const j = await r.json();
-    toast(j.ok ? '✔ ' + label : '✖ ' + (j.error || 'échec'), j.ok);
-    if (j.ok) refresh();
-  } catch (e) { toast('✖ ' + e.message, false); }
-}
-
-function cardInner(num, title, body) {
-  return `<div class="card"><div class="title">${esc(title)}</div>${body}
-    <a href="https://github.com/Bigbrother224/agent-factory/issues/${num}" target="_blank" class="num">#${num} ↗</a></div>`;
-}
-
-function issueCard(i, mode) {
-  const labels = (i.labels||[]).map(l => `<span class="label ${esc(l.name)}">${esc(l.name)}</span>`).join('');
-  let actions = '';
-  if (mode === 'door1') {
-    actions = `<button class="btn-approve" onclick="act('approve_idea',${i.number},null,'🚪 Porte 1 : approuver l\\'idée #${i.number}')">🚪 Porte 1 — approuver</button>
-      <button class="btn-danger" onclick="act('reject_idea',${i.number},null,'Retirer draft #${i.number}')">Retirer draft</button>
-      <button class="btn-danger" onclick="act('close_issue',${i.number},null,'Fermer #${i.number}')">Fermer</button>`;
-  } else if (mode === 'approved') {
-    actions = `<button class="btn-danger" onclick="act('close_issue',${i.number},null,'Fermer #${i.number}')">Fermer</button>`;
+/* badges d'une carte projet */
+function badgesFor(i,pr,ci,rev,stage){
+  const b=[];
+  if(hasL(i,'idea/draft')&&!hasL(i,'idea/approved'))b.push('<span class="badge b-yellow">🧠 idée — porte 1</span>');
+  if(hasL(i,'idea/approved')&&stage!=='shipped')b.push('<span class="badge b-green">✅ approuvée</span>');
+  if(hasL(i,'idea/rejected'))b.push('<span class="badge b-red">🚫 rejetée</span>');
+  if(hasL(i,'verify/failed'))b.push('<span class="badge b-red">⚠ verify/failed</span>');
+  if(hasL(i,'ship/pr')&&stage!=='shipped')b.push('<span class="badge b-purple">🚢 ship/pr — porte 2</span>');
+  if(pr&&pr.state==='OPEN'){
+    b.push({'green':'<span class="badge b-green">CI ✔</span>','red':'<span class="badge b-red">CI ✖</span>',
+      'pending':'<span class="badge b-yellow">CI ⏳</span>','none':'<span class="badge b-dim">CI —</span>'}[ci]);
+    if(rev)b.push(rev.verdict==='GO'?'<span class="badge b-green">kimi GO</span>'
+      :'<span class="badge b-red">kimi '+esc(rev.verdict)+'</span>');
+    b.push('<span class="badge b-blue">PR #'+pr.number+'</span>');
   }
-  return cardInner(i.number, i.title, `<div class="labels">${labels}</div>${actions}`);
+  if(stage==='shipped')b.push('<span class="badge b-green">🏆 shippé</span>');
+  return b.join('');
 }
 
-function prCard(p, ci, review) {
-  const labels = (p.labels||[]).map(l => `<span class="label ${esc(l.name)}">${esc(l.name)}</span>`).join('');
-  const ciBadge = { green:'<span class="badge b-green">CI ✔</span>', red:'<span class="badge b-red">CI ✖</span>',
-    pending:'<span class="badge b-yellow">CI ⏳</span>', none:'<span class="badge b-dim">CI —</span>' }[ci||'none'];
-  let revBadge = '';
-  if (review) {
-    revBadge = review.verdict === 'GO'
-      ? '<span class="badge b-green">kimi GO</span>'
-      : '<span class="badge b-red">kimi ' + esc(review.verdict) + '</span>';
+/* timeline du cycle */
+function timeline(stage,ciOk){
+  const steps=[
+    {k:'scout',l:'Scout'},{k:'p1',l:'Porte 1'},{k:'fleet',l:'Flotte B'},
+    {k:'ci',l:'CI+revue'},{k:'p2',l:'Porte 2'}];
+  const order={idea:1,p1done:1,building:2,failed:2,ship:3,shipped:4};
+  const cur=order[stage]??0;
+  const fail=stage==='failed';
+  return '<div class="tl">'+steps.map((s,idx)=>{
+    let cls=idx<cur?'done':idx===cur?(fail&&idx===2?'fail':'now'):'';
+    if(stage==='shipped')cls='done';
+    if(stage==='ship'&&idx===4)cls='now';
+    if(idx===3&&!ciOk&&(stage==='ship'||stage==='building'))cls='';
+    return '<div class="step '+cls+'"><span class="dot"></span>'+s.l+'</div>'+
+      (idx<4?'<span class="bar '+(idx<cur?'done':'')+'"></span>':'');
+  }).join('')+'</div>';
+}
+
+function projectCard(i,s){
+  const slug=slugify(i.title), axe=axeOf(i)||'—';
+  const pr=s.prs.find(p=>p.headRefName==='fleet/'+slug&&p.state==='OPEN')
+        || s.prs.find(p=>p.headRefName==='fleet/'+slug);
+  const ci=s.ci?.[pr?.number], rev=s.reviews?.[pr?.number];
+  const merged=pr&&pr.state==='MERGED';
+  const stage=merged?'shipped'
+    :hasL(i,'verify/failed')?'failed'
+    :hasL(i,'ship/pr')&&pr&&pr.state==='OPEN'?'ship'
+    :hasL(i,'idea/approved')&&(pr&&pr.state==='OPEN')?'building'
+    :hasL(i,'idea/approved')?'p1done'
+    :'idea';
+  const nbCom=(s.comments?.[i.number]||[]).length;
+  const nbRuns=(s.runs||[]).filter(r=>r.headBranch==='fleet/'+slug||r.displayTitle===i.title).length;
+
+  const feed=(s.comments?.[i.number]||[]).slice(-3).map(c=>{
+    const isFix=/^!fix/.test(c.body);
+    return '<div class="msg"><div class="meta">'+who(c.author)+' · '+ago(c.at)+'</div>'+
+      '<div class="body '+(isFix?'fix':'')+'">'+esc(c.body.slice(0,220))+(c.body.length>220?'…':'')+'</div></div>';
+  }).join('');
+
+  let actions='';
+  if(i.state==='OPEN'){
+    if(stage==='idea')
+      actions='<button class="btn-approve" onclick="act(\'approve_idea\','+i.number+',null,\'🚪 Porte 1 : approuver #'+i.number+'\')">🚪 Porte 1</button>'+
+        '<button class="btn-danger" onclick="const r=prompt(\'Raison du rejet de #'+i.number+' (le scout réitère) :\');if(r!==null)act(\'reject_idea\','+i.number+',r,\'Rejeter #'+i.number+'\')">Rejeter</button>';
+    else if(stage==='ship'||stage==='building')
+      actions='<button class="btn-merge" '+(ci==='green'?'':'disabled')+
+        ' onclick="act(\'merge_pr\','+(pr?pr.number:0)+',null,\'🚪 Porte 2 : merger PR #'+(pr?pr.number:'?')+'\')">🚪 Porte 2 — merger</button>';
+    if(hasL(i,'verify/failed'))
+      actions+='<button class="btn-ghost" onclick="act(\'retry_fleet\','+i.number+',null,\'🔄 Relancer la flotte sur #'+i.number+'\')">🔄 Relancer la flotte</button>';
+    actions+='<button class="btn-danger btn-mini" onclick="act(\'close_issue\','+i.number+',null,\'Fermer #'+i.number+'\')">fermer</button>';
   }
-  const ready = ci === 'green';
-  const fleet = (p.headRefName||'').startsWith('fleet/');
-  const actions = `
-    <button class="btn-merge" ${ready?'':'disabled'} onclick="act('merge_pr',${p.number},null,'🚪 Porte 2 : merger PR #${p.number}')">🚪 Porte 2 — merger</button>
-    <button class="btn-danger" onclick="act('close_pr',${p.number},null,'Fermer PR #${p.number}')">Fermer</button>
-    <button class="btn-ghost" onclick="const c=prompt('Commentaire à publier sur PR #${p.number} (ex: !fix …)');if(c)act('comment_pr',${p.number},c,'Commenter PR #${p.number}')">💬 Commenter</button>`;
-  return `<div class="card"><div class="title">${esc(p.title)}</div>
-    <div class="badges">${ciBadge}${fleet?'<span class="badge b-purple">flotte B</span>':''}${revBadge}</div>
-    <div class="labels">${labels}</div>${actions}
-    <a href="${esc(p.url||'#')}" target="_blank" class="num">#${p.number} · ${esc(p.headRefName)} ↗</a></div>`;
+
+  return '<div class="card">'+
+    '<div class="head"><div><div class="title">'+esc(i.title)+'</div>'+
+    '<div class="path">projects/'+esc(axe)+'/'+esc(slug)+'/ · #'+i.number+' · '+ago(i.updatedAt)+'</div></div></div>'+
+    '<div class="badges">'+badgesFor(i,pr,ci,rev,stage)+'</div>'+
+    timeline(stage,ci==='green')+
+    (feed?'<div class="feed">'+feed+'</div>':'')+
+    (i.state==='OPEN'?
+      '<form class="composer" onsubmit="sendNote(event,'+i.number+')">'+
+      '<input placeholder="Écrire à l\'usine sur ce projet…" maxlength="400">'+
+      '<button class="btn-fix" data-mode="fix" title="!fix → la flotte applique (workflow retour-humain)">🔧 !fix</button>'+
+      '<button class="btn-note" data-mode="note" title="Note simple — visible de tous, contexte pour l\'humain">💬</button>'+
+      '</form>':'')+
+    (actions?'<div class="actions">'+actions+'</div>':'')+
+    '<div class="stats">💬 '+nbCom+' messages · ⚙️ '+nbRuns+' runs'+
+    (pr?' · <a target="_blank" href="https://github.com/'+REPO+'/pull/'+pr.number+'">PR #'+pr.number+' ↗</a>':'')+
+    ' · <a target="_blank" href="https://github.com/'+REPO+'/issues/'+i.number+'">issue ↗</a></div>'+
+    '</div>';
 }
 
-function col(title, itemsHtml, count) {
-  return `<div class="col"><h2>${title}<span class="count">${count}</span></h2>${itemsHtml || '<div class="empty">vide</div>'}</div>`;
+function shippedBlock(list){
+  if(!list||!list.length)return'';
+  return list.map(p=>'<div class="shipped">🏆 <span class="s-title">'+esc(p.slug)+'</span> '+
+    (p.readme?'<span class="badge b-green" style="font-size:10px">README ✓</span>':'<span class="badge b-yellow" style="font-size:10px">README manquant</span>')+
+    ' <a target="_blank" href="https://github.com/'+REPO+'/tree/main/projects/'+esc(p.axe)+'/'+esc(p.slug)+'">↗</a></div>').join('');
 }
 
-function render(s) {
-  document.getElementById('repolink').textContent = s.repo;
-  document.getElementById('repolink').href = 'https://github.com/' + s.repo;
-  document.getElementById('when').textContent = '— ' + new Date(s.when).toLocaleTimeString('fr-FR');
+function render(s){
+  document.getElementById('repolink').textContent=s.repo;
+  document.getElementById('repolink').href='https://github.com/'+s.repo;
+  document.getElementById('live').title='maj '+s.when;
 
-  const issues = s.issues || [], prs = s.prs || [];
-  const prByNum = {}; prs.forEach(p => prByNum[p.number] = p);
+  const issues=(s.issues||[]).filter(i=>i.labels&&i.labels.length&&!(i.labels||[]).some(l=>l.name==='documentation'));
+  const prs=s.prs||[];
 
-  const isIdea = i => (i.labels||[]).some(l => l.name === 'idea/draft' || l.name === 'idea/approved');
-  const hasL = (o, n) => (o.labels||[]).some(l => l.name === n);
+  /* strip pipeline */
+  const st={
+    idea:issues.filter(i=>i.state==='OPEN'&&hasL(i,'idea/draft')&&!hasL(i,'idea/approved')&&!hasL(i,'idea/rejected')).length,
+    build:issues.filter(i=>i.state==='OPEN'&&hasL(i,'idea/approved')&&!hasL(i,'ship/pr')&&!hasL(i,'verify/failed')).length,
+    ship:issues.filter(i=>i.state==='OPEN'&&hasL(i,'ship/pr')).length,
+    failed:issues.filter(i=>i.state==='OPEN'&&hasL(i,'verify/failed')).length,
+    done:prs.filter(p=>p.state==='MERGED').length,
+  };
+  document.getElementById('strip').innerHTML=
+    '<div class="chip"><b>'+st.idea+'</b>🧠 porte 1</div>'+
+    '<div class="chip"><b>'+st.build+'</b>🔨 en chantier</div>'+
+    '<div class="chip good"><b>'+st.ship+'</b>🚢 porte 2</div>'+
+    '<div class="chip alert"><b>'+st.failed+'</b>⚠ à réparer</div>'+
+    '<div class="chip good"><b>'+st.done+'</b>🏆 shippés</div>'+
+    '<div class="chip">🗓 digest veille : <b>'+(s.lastDigest||'—')+'</b></div>'+
+    (s.errors&&s.errors.length?'<div class="chip alert">⚠ '+esc(s.errors[0].slice(0,60))+'</div>':'');
 
-  // Colonne 1 : idées en attente de porte 1
-  const waiting = issues.filter(i => i.state === 'OPEN' && isIdea(i) && !hasL(i,'idea/approved'));
-  // Colonne 2 : idées approuvées (en chantier flotte B)
-  const approved = issues.filter(i => i.state === 'OPEN' && hasL(i,'idea/approved'));
-  // Colonne 3 : PRs en cours (pas encore verify/ok)
-  const building = prs.filter(p => !hasL(p,'verify/ok'));
-  // Colonne 4 : PRs prêtes (verify/ok) → porte 2
-  const ready = prs.filter(p => hasL(p,'verify/ok'));
+  /* 3 colonnes d'axes */
+  document.getElementById('axes').innerHTML=AXES.map(a=>{
+    const inAxe=issues.filter(i=>axeOf(i)===a.key);
+    const cards=inAxe.map(i=>projectCard(i,s)).join('');
+    const shipped=(s.portfolio?.[a.key]||[]).map(p=>({...p,axe:a.key}));
+    return '<div class="axe '+a.cls+'"><h2>'+a.name+
+      '<span class="count">'+inAxe.filter(i=>i.state==='OPEN').length+'</span></h2>'+
+      (cards||'<div class="empty">aucun projet actif sur cet axe</div>')+
+      (shipped.length?'<h3 style="margin-top:10px;font-size:11px;color:var(--dim);text-transform:uppercase">Portfolio main</h3>'+shippedBlock(shipped):'')+
+      '</div>';
+  }).join('');
 
-  document.getElementById('cols').innerHTML =
-    col('🧠 Idées (porte 1)', waiting.map(i => issueCard(i,'door1')).join(''), waiting.length) +
-    col('✅ Approuvées / chantier', approved.map(i => issueCard(i,'approved')).join(''), approved.length) +
-    col('🏗️ PRs en cours', building.map(p => prCard(p, s.ci?.[p.number], s.reviews?.[p.number])).join(''), building.length) +
-    col('🚀 Prêtes à merger (porte 2)', ready.map(p => prCard(p, s.ci?.[p.number], s.reviews?.[p.number])).join(''), ready.length);
+  /* issues sans axe → avertissement */
+  const noAxe=issues.filter(i=>i.state==='OPEN'&&hasL(i,'idea/draft')&&!axeOf(i));
+  if(noAxe.length)document.getElementById('axes').insertAdjacentHTML('beforeend',
+    '<div class="axe" style="grid-column:1/-1;border-color:var(--red)"><h2 style="color:var(--red)">⚠ Idées sans axe (la flotte refusera)</h2>'+
+    noAxe.map(i=>'<div class="card"><div class="title">'+esc(i.title)+'</div>'+
+    '<div class="actions"><button class="btn-approve" onclick="const a=prompt(\'Quel axe ? (ai-automation-and-systems / embedded-intelligence / experimental-computing)\');if(a)act(\'set_axe\','+i.number+',a,\'Poser l\\\'axe sur #'+i.number+'\')">Poser l\'axe</button>'+
+    '<button class="btn-danger" onclick="act(\'close_issue\','+i.number+',null,\'Fermer #'+i.number+'\')">fermer</button></div></div>').join('')+
+    '</div>');
 
-  // Runs
-  const runs = s.runs || [];
-  document.getElementById('runs').innerHTML =
-    `<tr><th>Workflow</th><th>Titre</th><th>Statut</th><th></th></tr>` +
-    (runs.length ? runs.map(r => {
-      const concl = { success:['d-green','✔'], failure:['d-red','✖'], cancelled:['d-dim','∅'],
-        in_progress:['d-yellow','⏳'], queued:['d-yellow','⏳'] }[r.status === 'in_progress' || r.status === 'queued' ? r.status : r.conclusion] || ['d-dim','?'];
-      return `<tr><td>${esc(r.workflowName)}</td><td>${esc(r.displayTitle||r.headBranch||'')}</td>
-        <td><span class="dot ${concl[0]}"></span>${concl[1]}</td>
-        <td>${r.status!=='completed' ? `<button class="btn-ghost" onclick="act('rerun',${r.databaseId},null,'Relancer run ${r.databaseId}')">relancer</button>` : ''}</td></tr>`;
-    }).join('') : '<tr><td class="empty">aucun run</td></tr>');
+  /* runs */
+  const runs=s.runs||[];
+  document.getElementById('runs').innerHTML='<tr><th>Workflow</th><th>Déclencheur</th><th>Quand</th><th>Statut</th></tr>'+
+    (runs.length?runs.map(r=>{
+      const key=r.status==='completed'?r.conclusion:r.status;
+      const m={success:['d-green','✔'],failure:['d-red','✖'],cancelled:['d-dim','∅'],
+        in_progress:['d-yellow','⏳'],queued:['d-yellow','⏳']}[key]||['d-dim','?'];
+      return '<tr><td>'+esc(r.workflowName)+'</td><td>'+esc((r.displayTitle||r.headBranch||'').slice(0,44))+
+        '</td><td>'+ago(r.createdAt)+'</td><td><span class="dotc '+m[0]+'"></span>'+m[1]+
+        (r.status!=='completed'?' <button class="btn-ghost btn-mini" onclick="act(\'rerun\','+r.databaseId+',null,\'Relancer run '+r.databaseId+'\')">↻</button>':'')+
+        '</td></tr>';}).join(''):'<tr><td class="empty">aucun run</td></tr>');
 
-  // Revues
-  const rv = Object.entries(s.reviews || {});
-  document.getElementById('reviews').innerHTML =
-    `<tr><th>PR</th><th>Verdict</th><th>Extrait</th></tr>` +
-    (rv.length ? rv.map(([n, r]) => `<tr><td>#${n}</td>
-      <td>${r.verdict==='GO' ? '<span class="badge b-green">GO</span>' : '<span class="badge b-red">'+esc(r.verdict)+'</span>'}</td>
-      <td>${esc(r.excerpt.slice(0,120))}…</td></tr>`).join('')
-    : '<tr><td class="empty">aucune revue détectée</td></tr>');
+  /* revues kimi */
+  const rv=Object.entries(s.reviews||{});
+  document.getElementById('reviews').innerHTML='<tr><th>PR</th><th>Verdict</th><th>Extrait</th></tr>'+
+    (rv.length?rv.map(([n,r])=>'<tr><td>#'+n+'</td><td>'+(r.verdict==='GO'
+      ?'<span class="badge b-green">GO</span>':'<span class="badge b-red">'+esc(r.verdict)+'</span>')+
+      '</td><td>'+esc(r.excerpt.slice(0,110))+'…</td></tr>').join('')
+      :'<tr><td class="empty">aucune revue en attente</td></tr>');
 }
 
-async function refresh() {
-  try {
-    const r = await fetch('/api/state');
-    const s = await r.json();
-    if (s.errors && s.errors.length) toast('⚠ ' + s.errors[0], false);
-    render(s);
-  } catch (e) { document.getElementById('live').textContent = '⚠ hors ligne'; }
+async function refresh(){
+  try{
+    const r=await fetch('/api/state');render(await r.json());
+    document.getElementById('live').textContent='● live';
+  }catch(e){document.getElementById('live').textContent='⚠ hors ligne';}
 }
-refresh();
-setInterval(refresh, 10000);
+refresh();setInterval(refresh,10000);
 </script>
 </body>
 </html>

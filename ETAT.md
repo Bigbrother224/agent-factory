@@ -1,6 +1,6 @@
 # État — agent-factory (usine à projets, 3 groupes d'agents)
 
-Dernière mise à jour : 2026-11-02
+Dernière mise à jour : 2026-11-03
 
 ## Vision (restructurée 2026-11-03)
 - **Le portfolio est le but** : un GitHub articulé sur 3 axes — **ai-automation-and-systems**, **embedded-intelligence**, **experimental-computing**. L'usine (3 groupes d'agents : scouts / Aider / CI+revue kimi) ne construit QUE des projets alignés sur un axe, shippables en MVP démontrable, avec README anglais niveau portfolio.
@@ -20,14 +20,21 @@ Dernière mise à jour : 2026-11-02
 - **Barre portfolio** : CONTRAT-B règle 6 (README anglais : why/demo/how/tests, lisible en 2 min) ; TEMPLATE 6 sections avec Axe obligatoire ; scout-daily n'accepte un rapport QUE s'il porte un axe valide et pose le label `axe/*` sur l'issue.
 - README racine = landing portfolio (axes en tête, projet teleblock listé).
 
+## Fait — tour 8 (2026-11-03, dashboard v2 — portfolio vivant + point de communication)
+- **Dashboard v2** (`dashboard/`) adapté à la structure portfolio : 3 colonnes = les 3 axes, une carte vivante par projet (timeline du cycle Scout→Porte 1→Flotte B→CI+revue→Porte 2, badges idea/axe/verify/ship, CI, verdict kimi, stats, lien portfolio).
+- **Point de communication humain↔agents intégré** : chaque carte affiche le fil des derniers commentaires (toi + l'usine) et un composeur — **mode `🔧 !fix`** publie un commentaire `!fix …` → workflow retour-humain → la flotte exécute ; **mode `💬 Note`** publie un commentaire simple (contexte lisible par toi et toute relecture). GitHub reste l'unique bus : zéro fichier d'état parallèle (décision « en attente » tranchée).
+- Actions contextuelles : Porte 1, Porte 2 (merger — grisée si CI ≠ verte), rejeter avec raison (commentaire + `idea/rejected`), relancer la flotte (retirer/reposé `idea/approved`), poser l'axe (bloc avertissement pour idées sans axe — la flotte refuserait), fermer, relancer un run.
+- Strip pipeline (portes 1/2, chantier, à réparer, shippés, date du dernier digest de veille) + tables runs agents et revues kimi + portfolio main par axe (flag README manquant — teleblock signalé, règle 6 pas encore satisfaite).
+- Vérifié en réel : 3 issues / 7 PRs / 30 runs / digest / fil des 4 messages de #2 / kimi NO-GO PR #10 / garde-fous (note vide, axe invalide, action inconnue refusés).
+
 ## Prochaine étape
-Valider le premier cycle complet sous la nouvelle structure : le cron scout de demain (08:30 UTC) doit produire une idée alignée axe (sinon échec explicite) → porte 1 → flotte → porte 2. En parallèle : brancher le dashboard (3e agent pi) sur les labels (source de vérité : idea/*, axe/*, ship/pr, verify/*).
+Toi : ouvrir `~/Projects/factory/dashboard/start.sh` → trancher la PR #10 (couche qualité, kimi NO-GO — lire la revue sur la carte) depuis la carte ou `gh pr view 10 -R Bigbrother224/agent-factory`, puis demain valider le premier cycle scout complet sous la nouvelle structure (idée alignée axe → porte 1 → flotte → porte 2).
 
 ## Règles humaines verrouillées (2026-11-03)
 - **glm-5.3:cloud (flagship) INTERDIT partout** — uniquement `glm-5.3-flash:cloud` (abonnement). Verrouillé dans verify.sh : toute PR l'introduisant est refusée par la CI.
 - Le dashboard est l'outil personnel de l'humain — pas d'axes d'amélioration imposés par l'usine.
 
 ## Décisions en attente
-- Dashboard : architecture (lit GitHub en direct via gh, ou s'appuie sur un fichier d'état ?) — à coordonner avec le 3e agent pi.
+- ~~Dashboard : architecture~~ **Tranché (tour 8)** : lit GitHub en direct via `gh` (zéro fichier d'état parallèle), le composeur passe par les commentaires d'issue (`!fix` = instructions exécutables).
 - Public/privé : le repo doit-il devenir public pour être un vrai portfolio GitHub ? (branch protection gratuite au passage).
 - Garder ou tuer le daemon rabbit-agent (99% CPU depuis le 13 oct.).

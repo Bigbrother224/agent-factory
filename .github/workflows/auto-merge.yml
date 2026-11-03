@@ -1,0 +1,44 @@
+name: auto-merge-chantier
+
+on:
+  schedule:
+    - cron: "*/20 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  merge:
+    # Ferme la boucle du chantier résident : une PR chantier/* dont la CI est
+    # verte ET dont la dernière revue kimi est GO est mergée (squash).
+    # Les PRs humaines ne sont JAMAIS touchées — la porte 2 reste humaine.
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Auto-merge des tranches vertes et GO
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for pr in $(gh pr list --repo "$GITHUB_REPOSITORY" --state open \
+            --json number,headRefName --limit 30 \
+            -q '.[] | select(.headRefName | startswith("chantier/")) | .number'); do
+            echo "--- PR #$pr ---"
+            # 1) CI entièrement verte ?
+            if ! gh pr checks "$pr" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+              echo "checks pas tous verts — skip"; continue
+            fi
+            # 2) Dernière revue kimi = GO ?
+            VERDICT=$(gh pr view "$pr" --repo "$GITHUB_REPOSITORY" --json comments \
+              -q '[.comments[].body] | map(select(startswith("## Revue du groupe C"))) | last')
+            if [ -z "$VERDICT" ]; then echo "pas encore de revue — skip"; continue; fi
+            if ! printf '%s' "$VERDICT" | grep -q '\*\*GO\*\*'; then
+              echo "dernière revue ≠ GO — skip"; continue
+            fi
+            echo "CI verte + GO → merge"
+            gh pr merge "$pr" --repo "$GITHUB_REPOSITORY" --squash --delete-branch=false \
+              --subject "chantier: tranche validée (PR #$pr)" || true
+          done
+          echo "boucle terminée."
