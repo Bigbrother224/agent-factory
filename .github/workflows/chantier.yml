@@ -141,6 +141,7 @@ jobs:
               -q '[.comments[].body] | map(select(startswith("## Revue du groupe C"))) | last' > /tmp/revue.md || true
             [ -s /tmp/revue.md ] && FEEDBACK="AVANT de coder : lis /tmp/revue.md — la dernière revue kimi. Corrige en priorité les points BLOQUANT/SÉRIEUX qui concernent $PROJ/. "
           fi
+          BEFORE=$(git rev-parse HEAD)
           aider --model openai/glm-5.3-flash:cloud --openai-api-base https://ollama.com/v1 \
             --weak-model openai/glm-5.3-flash:cloud --edit-format udiff \
             --yes-always --no-auto-lint --no-check-update \
@@ -148,7 +149,6 @@ jobs:
             --no-attribute-commit-message-author --no-attribute-commit-message-committer \
             --test-cmd "./verify.sh $AXE/$PROJDIR" --auto-test \
             --message "${FEEDBACK}Tu es le CODEUR du chantier. Implémente MAINTENANT la tranche «${TRANCHE#*] }» dans $PROJ/ en produisant des blocs udiff SEARCH/REPLACE complets dans cette réponse — pas de plan, pas d'attente : l'arbitre ./verify.sh est exécuté automatiquement après tes éditions, tu n'as rien à me demander. Lis d'abord $PROJ/ROADMAP.md pour le contexte. Contraintes : ne modifie rien en dehors de $PROJ/ ; une fois les éditions faites, coche la tranche [x] dans $PROJ/ROADMAP.md (édite-le aussi)."
-          BEFORE=$(git rev-parse HEAD)
           CHANGED=0
           if [ -n "$(git log HEAD --not "$BEFORE")" ] || [ -n "$(git status --porcelain)" ]; then CHANGED=1; fi
           if [ "$CHANGED" != "1" ]; then

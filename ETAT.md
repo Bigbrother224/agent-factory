@@ -33,8 +33,14 @@ Dernière mise à jour : 2026-11-03
 - Réviseur durci : 32k tokens, diff plafonné 40 Ko (saturation détectée et corrigée).
 - Fin de roadmap = label `ship/pr` sur l'issue → porte 2 humaine. Les portes humaines restent : valider les idées, merger le ship.
 
+## Fait — tour 9 (2026-11-03, refonte design du dashboard via skill GitHub)
+- **Skill adopté** : `h3nryprod01/design-taste` (synthèse des 3 skills de référence : Emil Kowalski design-engineering + impeccable + taste-skill) — cloné dans /tmp/design-taste, mode **Operate** (dashboard), dials variance 4 / motion 3 / densité 6.
+- **dashboard.html refondu selon le skill** : famille unique Outfit + JetBrains Mono pour les données (plus Inter par défaut) · palette off-black + accent orange brûlé unique verrouillé, neutres teintés vers l'accent, sémantique ok/bad/warn/info standardisée · zéro carte imbriquée (colonnes d'axe plates, un seul niveau d'élévation) · bordure latérale du fil supprimée (AI-slop) · timeline du cycle reconstruite · composeur avec label visible au-dessus du champ (plus de placeholder-étiquette) · états d'interaction complets (:focus-visible, :active scale(.97), disabled, hover en media-query, squelettes de chargement) · motion 180 ms ease-out custom + prefers-reduced-motion · icônes Lucide inline (plus d'emojis) · copy auditée sans tiret cadratin · z-index documenté (toast=30).
+- **Pre-flight du skill exécuté** : `scripts/preflight.mjs` → 0 violation dure après correctifs (outline:focus-visible ajouté, em dash supprimé) ; 3 warnings assumés (CDN fonts avec fallback hors ligne, micro-étiquettes sous la limite).
+- Fonctionnalités v2 intactes : 3 axes, fil de communication + composeur !fix/note, portes 1/2, relance flotte, rejet motivé, pose d'axe, portfolio main avec flag README.
+
 ## Prochaine étape
-Toi : ouvrir `~/Projects/factory/dashboard/start.sh` → trancher la PR #10 (couche qualité, kimi NO-GO — lire la revue sur la carte) depuis la carte ou `gh pr view 10 -R Bigbrother224/agent-factory`, puis demain valider le premier cycle scout complet sous la nouvelle structure (idée alignée axe → porte 1 → flotte → porte 2).
+Toi : recharger http://localhost:7777 (design refondu), puis trancher la PR #10 (couche qualité, kimi NO-GO : lire la revue sur la carte ou `gh pr view 10 -R Bigbrother224/agent-factory`), et demain valider le premier cycle scout complet sous les 3 axes.
 
 ## Règles humaines verrouillées (2026-11-03)
 - **glm-5.3:cloud (flagship) INTERDIT partout** — uniquement `glm-5.3-flash:cloud` (abonnement). Verrouillé dans verify.sh : toute PR l'introduisant est refusée par la CI.
