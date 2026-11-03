@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"net/http"
 	"strconv"
 	"strings"
 
@@ -17,6 +18,7 @@ import (
 	"teleblock/internal/profile"
 	"teleblock/internal/rules"
 	"teleblock/internal/tcp"
+	"teleblock/internal/web"
 )
 
 // device is a TV declared on the command line.
@@ -46,6 +48,7 @@ func main() {
 	flag.Var(&devices, "device", "TV to protect, as IP=brand (samsung, lg, sony, tcl, generic); repeatable")
 	tlsListen := flag.String("tls-listen", ":443", "local port where redirected HTTPS (443) traffic arrives for passive SNI inspection; empty disables")
 	observeState := flag.String("observe-state", "observe.json", "local JSON file holding the per-device learning state; empty disables learning mode")
+	webListen := flag.String("web-listen", ":8080", "local dashboard (TV panel) on this address; empty disables")
 	flag.Parse()
 
 	var learn *observe.Store
@@ -61,10 +64,12 @@ func main() {
 		router.EnableLearning(learn)
 		log.Printf("teleblock: per-device learning state %s, period %v", *observeState, observe.DefaultPeriod)
 	}
+	known := make(map[string]string)
 	for _, d := range devices {
 		if err := router.Assign(net.ParseIP(d.ip), d.brand); err != nil {
 			log.Fatalf("device %s: %v", d.ip, err)
 		}
+		known[d.ip] = d.brand
 		log.Printf("device %s: %s profile", d.ip, d.brand)
 	}
 
@@ -84,6 +89,16 @@ func main() {
 		go func() {
 			if err := inspector.Serve(ln); err != nil {
 				log.Printf("teleblock: tcp inspection stopped: %v", err)
+			}
+		}()
+	}
+
+	if *webListen != "" {
+		dash := web.New(router, known)
+		log.Printf("teleblock: dashboard on http://localhost%s", *webListen)
+		go func() {
+			if err := http.ListenAndServe(*webListen, dash); err != nil {
+				log.Printf("teleblock: dashboard stopped: %v", err)
 			}
 		}()
 	}
