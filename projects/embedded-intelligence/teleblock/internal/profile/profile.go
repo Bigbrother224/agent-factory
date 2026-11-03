@@ -78,12 +78,16 @@ func (r *Router) Assign(ip net.IP, brand string) error {
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	r.devices[ip.String()] = brand
+	// Persister AVANT de muter la map : si Register échoue, l'assignation
+	// échoue entière (contrat « l'échec de persistance fait échouer
+	// l'assignation ») — jamais un appareil assigné en mémoire sans état
+	// persisté (revue : atomicité).
 	if r.learn != nil {
 		if err := r.learn.Register(ip, brand); err != nil {
 			return fmt.Errorf("device %s: %w", ip, err)
 		}
 	}
+	r.devices[ip.String()] = brand
 	return nil
 }
 

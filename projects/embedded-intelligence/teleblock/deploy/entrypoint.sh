@@ -37,7 +37,11 @@ esac
 # bloquante). cleanup est idempotente : un double passage est inoffensif.
 cleanup() {
 	iptables -t nat -D PREROUTING -p tcp --dport 443 -j REDIRECT --to-ports "$TLS_PORT" 2>/dev/null || true
-	kill "$child" 2>/dev/null || true
+	# child="" initialisé avant le trap : un signal reçu entre le trap et
+	# l'assignation (démarrage lent du binaire) ne doit pas tuer le shell
+	# sous set -u SANS retirer la règle iptables (revue : fuite bloquante).
+	[ -n "$child" ] && kill "$child" 2>/dev/null
+	true
 }
 trap cleanup EXIT INT TERM
 

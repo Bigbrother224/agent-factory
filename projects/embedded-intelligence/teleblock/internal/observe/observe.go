@@ -314,6 +314,11 @@ func (s *Store) Set(ip net.IP) (Set, bool) {
 // for domains the profile does not know, and to Allow when no baseline is
 // set. Decide never mutates the learning state.
 func (s *Store) Decide(ip net.IP, domain string) Verdict {
+	// Guard nil comme les autres méthodes publiques : un IP nil est un appel
+	// buggé, pas un crash du résolveur (revue : panic possible).
+	if ip == nil {
+		return Observe
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	d, ok := s.devices[ip.String()]
