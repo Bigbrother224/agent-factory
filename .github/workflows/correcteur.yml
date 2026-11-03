@@ -69,7 +69,7 @@ jobs:
           # ici c'est la clé Ollama (base https://ollama.com/v1), pas une clé OpenAI.
           OPENAI_API_KEY: ${{ secrets.OLLAMA_API_KEY }}
         run: |
-          AIDER="aider --model openai/glm-5.3:cloud --openai-api-base https://ollama.com/v1 \
+          AIDER="aider --model openai/glm-5.3-flash:cloud --openai-api-base https://ollama.com/v1 \
             --weak-model openai/glm-5.3-flash:cloud --edit-format udiff \
             --yes-always --no-auto-lint --no-check-update \
             --no-attribute-author --no-attribute-committer \

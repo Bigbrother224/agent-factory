@@ -83,7 +83,7 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OLLAMA_API_KEY }}
         run: |
           if [ "${DUPLICATE:-0}" = "1" ]; then echo ">>> Doublon ignoré (ship/pr déjà posé)."; exit 0; fi
-          AIDER="aider --model openai/glm-5.3:cloud --openai-api-base https://ollama.com/v1 \
+          AIDER="aider --model openai/glm-5.3-flash:cloud --openai-api-base https://ollama.com/v1 \
             --weak-model openai/glm-5.3-flash:cloud --edit-format udiff \
             --yes-always --no-auto-lint --no-check-update \
             --no-attribute-author --no-attribute-committer \
@@ -134,7 +134,7 @@ jobs:
           # Si la CI est rouge alors que l'arbitre local est vert (écart d'environnement),
           # une session Aider correctrice diagnostique le log CI et pousse un correctif,
           # jusqu'à 3 fois. verify/failed ne tombe qu'après épuisement réel des relances.
-          AIDER="aider --model openai/glm-5.3:cloud --openai-api-base https://ollama.com/v1 \
+          AIDER="aider --model openai/glm-5.3-flash:cloud --openai-api-base https://ollama.com/v1 \
             --weak-model openai/glm-5.3-flash:cloud --edit-format udiff \
             --yes-always --no-auto-lint --no-check-update \
             --no-attribute-author --no-attribute-committer \
