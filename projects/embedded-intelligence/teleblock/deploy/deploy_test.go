@@ -115,8 +115,9 @@ func TestComposeConfigValidates(t *testing.T) {
 
 // Image multi-arch : étage de build sur la plateforme de l'hôte,
 // cross-compile vers $TARGETOS/$TARGETARCH (amd64 + arm64/Pi, sans
-// émulation QEMU). Version de Go épinglée sur go.mod (revue : un tag
-// flottant casse la reproductibilité des builds).
+// émulation QEMU). Version de Go épinglée sur celle de go.mod — le
+// test lit go.mod au lieu de coder la version en dur (revue : sinon le
+// contrat ne change pas mais le test casse).
 func TestDockerfileIsMultiArchWithPinnedGo(t *testing.T) {
 	d := readDeployFile(t, "Dockerfile")
 	for _, want := range []string{
@@ -128,9 +129,15 @@ func TestDockerfileIsMultiArchWithPinnedGo(t *testing.T) {
 	} {
 		assertDeployContains(t, "Dockerfile", d, want)
 	}
-	if !strings.Contains(d, "golang:1.21-alpine") {
-		t.Errorf("Dockerfile : version de Go non épinglée sur celle de go.mod (golang:1.21-alpine)")
+	gomod, err := os.ReadFile(filepath.Join(projectDir, "go.mod"))
+	if err != nil {
+		t.Fatalf("go.mod illisible : %v", err)
 	}
+	m := regexp.MustCompile(`(?m)^go (\d+\.\d+)`).FindSubmatch(gomod)
+	if m == nil {
+		t.Fatal("go.mod : directive « go X.Y » introuvable")
+	}
+	assertDeployContains(t, "Dockerfile", d, "golang:"+string(m[1])+"-alpine")
 }
 
 // Binaire statique (CGO désactivé) : l'étage runtime reste minimal.
@@ -173,7 +180,7 @@ func TestEntrypointAppliesRedirectRuleIdempotently(t *testing.T) {
 		"iptables -t nat -C PREROUTING -p tcp --dport 443 -j REDIRECT --to-ports")
 	assertDeployContains(t, "entrypoint.sh", e,
 		"iptables -t nat -D PREROUTING -p tcp --dport 443 -j REDIRECT --to-ports")
-	assertDeployContains(t, "entrypoint.sh", e, "trap cleanup TERM INT")
+	assertDeployContains(t, "entrypoint.sh", e, "trap cleanup EXIT INT TERM")
 	if runtime.GOOS == "windows" {
 		t.Skip("pas de sh sous windows")
 	}
@@ -272,6 +279,30 @@ func TestInstallScriptImportsExistingPiholeGravity(t *testing.T) {
 	} {
 		assertDeployContains(t, "install.sh", s, want)
 	}
+}
+
+// Le motif de nom Pi-hole doit être STRICT (revue : « pihole-exporter »
+// matchait et déclenchait à tort repli de port et import bidon). Test
+// comportemental du motif réel : les vrais noms passent, les imposteurs
+// (sidecar, préfixe collé) sont rejetés.
+func TestPiholeNamePatternIsStrict(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("pas de sh sous windows")
+	}
+	const pat = `(^|[-_])pihole([-_][0-9]+)?$`
+	for _, hit := range []string{"pihole", "docker-pihole", "PiHole-1", "pihole_2"} {
+		if err := exec.Command("sh", "-c", "echo "+hit+" | grep -Eqi '"+pat+"'").Run(); err != nil {
+			t.Errorf("%q devrait matcher le motif Pi-hole", hit)
+		}
+	}
+	for _, miss := range []string{"pihole-exporter", "mypihole", "xpihole", "piholeweb"} {
+		if err := exec.Command("sh", "-c", "echo "+miss+" | grep -Eqi '"+pat+"'").Run(); err == nil {
+			t.Errorf("%q ne doit PAS matcher le motif Pi-hole (imposteur)", miss)
+		}
+	}
+	s := readDeployFile(t, "install.sh")
+	assertDeployContains(t, "install.sh", s, `PIHOLE_NAME_RE='(^|[-_])pihole([-_][0-9]+)?$'`)
+	assertDeployContains(t, "install.sh", s, `grep -Eqi "$PIHOLE_NAME_RE"`)
 }
 
 // Contrat état install.sh ↔ compose : la gravity est importée sous

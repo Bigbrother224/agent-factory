@@ -9,15 +9,31 @@ set -eu
 
 TLS_PORT="${TELEBLOCK_TLS_PORT:-8449}"
 
-# Règle idempotente : -C teste son existence, -A l'ajoute si absente.
-iptables -t nat -C PREROUTING -p tcp --dport 443 -j REDIRECT --to-ports "$TLS_PORT" 2>/dev/null ||
-	iptables -t nat -A PREROUTING -p tcp --dport 443 -j REDIRECT --to-ports "$TLS_PORT"
+# Règle idempotente. -C rend 1 quand la règle est absente : c'est le
+# seul cas où l'on tente l'ajout. Tout autre code est une vraie erreur
+# (cap NET_ADMIN manquante, iptables absent) : on s'arrête en l'écrivant
+# au lieu de laisser un -A échouer en silence (revue : masquer -C
+# coupait tout diagnostic).
+if iptables -t nat -C PREROUTING -p tcp --dport 443 -j REDIRECT --to-ports "$TLS_PORT" 2>/dev/null; then
+	:
+elif [ "$?" -eq 1 ]; then
+	iptables -t nat -A PREROUTING -p tcp --dport 443 -j REDIRECT --to-ports "$TLS_PORT" ||
+		{ echo "[teleblock] ERREUR : impossible d'installer la règle REDIRECT 443->$TLS_PORT (cap NET_ADMIN manquante ?)" >&2; exit 1; }
+else
+	echo "[teleblock] ERREUR : iptables -C a échoué (cap NET_ADMIN manquante, iptables absent ?)" >&2
+	exit 1
+fi
 
+# La règle vit dans l'espace réseau de l'HÔTE (network_mode: host) :
+# elle doit disparaître quoi qu'il arrive — arrêt normal, erreur fatale
+# (set -e sort via le trap EXIT), docker stop (TERM) — sinon le HTTPS
+# du LAN reste coupé après la mort du conteneur (revue : fuite
+# bloquante). cleanup est idempotente : un double passage est inoffensif.
 cleanup() {
 	iptables -t nat -D PREROUTING -p tcp --dport 443 -j REDIRECT --to-ports "$TLS_PORT" 2>/dev/null || true
 	kill "$child" 2>/dev/null || true
 }
-trap cleanup TERM INT
+trap cleanup EXIT INT TERM
 
 /usr/local/bin/teleblock "$@" &
 child=$!

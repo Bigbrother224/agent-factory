@@ -64,7 +64,11 @@ PIHOLE_PRESENT=0
 
 # Liste des conteneurs lue une seule fois (revue : deux appels à docker ps
 # peuvent désigner des conteneurs différents si la liste bouge entre eux).
+# Motif strict « pihole » comme nom complet ou segment délimité
+# (pihole, docker-pihole, pihole-1) : un sidecar « pihole-exporter » ne
+# doit pas déclencher le repli de port ni un import de gravity bidon.
 RUNNING_CONTAINERS=$(docker ps --format '{{.Names}}' 2>/dev/null || true)
+PIHOLE_NAME_RE='(^|[-_])pihole([-_][0-9]+)?$'
 
 if [ -f /etc/pihole/gravity.db ]; then
 	PIHOLE_PRESENT=1
@@ -74,9 +78,9 @@ if [ -f /etc/pihole/gravity.db ]; then
 	else
 		log "sqlite3 absent ou gravity illisible : pas d'import, l'installation continue"
 	fi
-elif echo "$RUNNING_CONTAINERS" | grep -qi pihole; then
+elif echo "$RUNNING_CONTAINERS" | grep -Eqi "$PIHOLE_NAME_RE"; then
 	PIHOLE_PRESENT=1
-	PIHOLE_CONTAINER=$(echo "$RUNNING_CONTAINERS" | grep -i pihole | head -n 1)
+	PIHOLE_CONTAINER=$(echo "$RUNNING_CONTAINERS" | grep -Ei "$PIHOLE_NAME_RE" | head -n 1)
 	if docker exec "$PIHOLE_CONTAINER" sqlite3 /etc/pihole/gravity.db \
 		'SELECT domain FROM gravity;' >"$GRAVITY_OUT" 2>/dev/null; then
 		log "gravity Pi-hole conteneurisée importée : $(wc -l <"$GRAVITY_OUT" | tr -d ' ') domaines -> $GRAVITY_OUT"
