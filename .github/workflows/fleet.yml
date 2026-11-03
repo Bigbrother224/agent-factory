@@ -169,9 +169,11 @@ jobs:
             [ "$CI_TRY" = "3" ] && break
             FAIL_LINK=$(gh pr checks "$PR_URL" --repo "$GITHUB_REPOSITORY" --json name,state,link \
               -q '[.[] | select(.state=="FAILURE" or .state=="fail")][0].link' 2>/dev/null || true)
-            if [ -n "$FAIL_LINK" ]; then
-              gh run view "$(basename "$FAIL_LINK")" --repo "$GITHUB_REPOSITORY" --log-failed > /tmp/ci-red.txt 2>&1 \
-                || echo "log CI indisponible" > /tmp/ci-red.txt
+            # Le link est une URL de JOB — extraire l'ID de RUN, pas le basename.
+            RUN_ID=$(printf '%s' "$FAIL_LINK" | grep -oE '/runs/[0-9]+' | grep -oE '[0-9]+' || true)
+            if [ -n "$RUN_ID" ]; then
+              gh run view "$RUN_ID" --repo "$GITHUB_REPOSITORY" --log-failed > /tmp/ci-red.txt 2>&1 \
+                || echo "log CI indisponible (run $RUN_ID)" > /tmp/ci-red.txt
             else
               echo "log CI indisponible" > /tmp/ci-red.txt
             fi

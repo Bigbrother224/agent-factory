@@ -93,6 +93,14 @@ jobs:
             local ACTION="$1" NUM="$2" BRANCH="$3" AXE="$4" SLUG="$5" CYCLE="$6" ATTEMPT GREEN PROJ="$4/$5"
             echo ">>> PR #$NUM ($BRANCH) : action=$ACTION"
             [ "$ACTION" = "bloque" ] && { bloque_pr "$NUM"; return 0; }
+            # Fraîcheur de la revue : si une revue plus récente est arrivée depuis la
+            # construction de la file, on ne brûle PAS un cycle sur une revue périmée.
+            LATEST=$(gh pr view "$NUM" --json comments \
+              -q '[.comments[] | select(.body | startswith("## Revue du groupe C"))][-1].body' 2>/dev/null || true)
+            if [ "$LATEST" != "$(cat "/tmp/correcteur-$NUM-revue.md" 2>/dev/null)" ]; then
+              echo ">>> PR #$NUM : revue périmée (une plus récente est arrivée) — ignorée ce cycle."
+              return 0
+            fi
             git checkout -q -B "$BRANCH" "origin/$BRANCH"
             {
               echo "## Revue du groupe C (verdict NO-GO) sur ta PR #$NUM"
