@@ -40,8 +40,15 @@ Dernière mise à jour : 2026-11-02
 - PR #5 ouverte, CI verte (run 41516914883), labels `verify/ok` + `ship/pr` posés — **en attente de ta porte 2**.
 - Resté à faire dans ce circuit : la revue lecture-seule du groupe C (l'humain relit la PR au merge) — pour l'instant C = CI seul.
 
+## Fait — tour 6 (2026-11-03, mode d'emploi + ta voix dans l'usine)
+- **Mode d'emploi** : README refondu pour l'humain (les 2 portes, tableau de bord gh, agents déployés, où est le code, garanties qualité) + issue #6 épinglée sur GitHub.
+- **Tes commentaires comptent** : workflow `retour-humain.yml` — `!fix …` sur une issue → session Aider qui applique tes instructions au projet de la PR liée (garde-fou : une vraie modification + verify.sh vert, sinon échec). Prouvé : README.md ajouté à projects/motdujour via `!fix`.
+- **Groupe C complet** : workflow `revue.yml` — kimi-k2.7-code relit chaque PR (diff ≤60 Ko) et publie sa revue GO/NO-GO en commentaire. Il a attrapé en réel : un backslash cassé (BLOQUANT) dans un workflow, des faux comptages de tests, une PR fermée par erreur.
+- **Slugs courts** (fleet/slugify.py : 3 mots max) ; PR #7 reconstruite propre (main + projet motdujour + README).
+- **⚠️ Deuxième flux d'agent actif** : un agent local « c-verificateur » (worktree /tmp/factory-cfix, resident rabbit-agent repéré au passage) pousse des audits sur la PR #8 (relances CI auto, min 8 tests arbitré, rouverture de PR sur !fix). Utile mais il a écrasé un de mes correctifs (kimi l'a rattrapé : NO-GO). PR #8 = ta porte 2, à merger seulement quand son flux est stabilisé/arrêté.
+
 ## Prochaine étape
-Porte 2 : trancher la PR #5 (`gh pr merge 5 -R Bigbrother224/agent-factory` ou rejet). Ensuite, l'usine tourne seule : le cron scout (08:30 UTC) poste une idée/jour, tu approuves (`idea/approved`), la flotte construit, la CI arbitre, tu merges.
+Toi : ① trancher la PR #7 (motdujour, CI verte, kimi GO) : `gh pr merge 7 -R Bigbrother224/agent-factory` ; ② décider de la PR #8 (audit du 2e agent) et si tu veux garder ce flux parallèle actif.
 
 ## Décisions en attente
 - Protection de branche (bloquée : GitHub Pro requis sur repo privé). Options : passer `agent-factory` en public (protection gratuite) ou prendre Pro.
