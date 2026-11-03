@@ -62,6 +62,10 @@ GRAVITY_OUT="$STATE_DIR/pihole-gravity.txt"
 mkdir -p "$STATE_DIR"
 PIHOLE_PRESENT=0
 
+# Liste des conteneurs lue une seule fois (revue : deux appels à docker ps
+# peuvent désigner des conteneurs différents si la liste bouge entre eux).
+RUNNING_CONTAINERS=$(docker ps --format '{{.Names}}' 2>/dev/null || true)
+
 if [ -f /etc/pihole/gravity.db ]; then
 	PIHOLE_PRESENT=1
 	if command -v sqlite3 >/dev/null 2>&1 &&
@@ -70,9 +74,9 @@ if [ -f /etc/pihole/gravity.db ]; then
 	else
 		log "sqlite3 absent ou gravity illisible : pas d'import, l'installation continue"
 	fi
-elif docker ps --format '{{.Names}}' 2>/dev/null | grep -qi pihole; then
+elif echo "$RUNNING_CONTAINERS" | grep -qi pihole; then
 	PIHOLE_PRESENT=1
-	PIHOLE_CONTAINER=$(docker ps --format '{{.Names}}' | grep -i pihole | head -n 1)
+	PIHOLE_CONTAINER=$(echo "$RUNNING_CONTAINERS" | grep -i pihole | head -n 1)
 	if docker exec "$PIHOLE_CONTAINER" sqlite3 /etc/pihole/gravity.db \
 		'SELECT domain FROM gravity;' >"$GRAVITY_OUT" 2>/dev/null; then
 		log "gravity Pi-hole conteneurisée importée : $(wc -l <"$GRAVITY_OUT" | tr -d ' ') domaines -> $GRAVITY_OUT"
@@ -85,7 +89,14 @@ fi
 #    Pi-hole occupe déjà 53 — le repli est validé comme réellement libre
 #    avant d'écrire deploy/.env (sinon le bind du compose échouerait).
 port_free() {
-	command -v nc >/dev/null 2>&1 || return 0 # nc absent : présumé libre
+	port_hex=$(printf '%04X' "$1")
+	for f in /proc/net/tcp /proc/net/tcp6; do
+		if [ -r "$f" ] && awk -v p=":$port_hex" '$2 ~ p"$" && $4 == "0A" { found = 1 }
+			END { exit !found }' "$f" 2>/dev/null; then
+			return 1
+		fi
+	done
+	command -v nc >/dev/null 2>&1 || return 0
 	! nc -z 127.0.0.1 "$1" >/dev/null 2>&1
 }
 

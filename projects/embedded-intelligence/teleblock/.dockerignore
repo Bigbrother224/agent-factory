@@ -1,0 +1,6 @@
+# Artefacts locaux : jamais dans l'image ni le contexte de build.
+.git
+deploy/data
+deploy/.env
+observe.json
+*.log
