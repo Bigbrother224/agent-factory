@@ -60,10 +60,11 @@ jobs:
           echo "num=$NUM" >> "$GITHUB_OUTPUT"
           echo "axe=$AXE" >> "$GITHUB_OUTPUT"
           echo "title=$TITLE" >> "$GITHUB_OUTPUT"
+          echo "active=1" >> "$GITHUB_OUTPUT"
           echo ">>> chantier actif : #$NUM — $TITLE (axe $AXE)"
 
       - name: Branche du chantier
-        if: steps.state.outputs.active != '0'
+        if: steps.state.outputs.active == '1'
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
@@ -92,7 +93,7 @@ jobs:
           fi
 
       - name: Roadmap (si absente — session plan)
-        if: steps.state.outputs.active != '0'
+        if: steps.state.outputs.active == '1'
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
@@ -109,7 +110,7 @@ jobs:
             --message "Tu es le PLANIFICATEUR du chantier. Lis /tmp/spec.md (spec de l'issue #$NUM) et le code existant dans $PROJ/. Crée $PROJ/ROADMAP.md : le chemin du MVP actuel vers la définition de « shippé » de l'issue, en 5-8 tranches AUTONOMES. Format exact par tranche : « - [ ] T<n> : <objectif précis> — fichiers: <attendus> — vérif: <commande>. » Dernière tranche = « T<n> : définition de shippé atteinte ». Commence par « # Roadmap — <projet> » + tableau des tranches. Ne crée RIEN d'autre."
 
       - name: Prochaine tranche
-        if: steps.state.outputs.active != '0'
+        if: steps.state.outputs.active == '1'
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
@@ -125,7 +126,7 @@ jobs:
           echo "TRANCHE=$TRANCHE" >> "$GITHUB_ENV"
 
       - name: Tranche (session code, avec feedback kimi)
-        if: steps.state.outputs.active != '0' && env.FINISHED != '1'
+        if: steps.state.outputs.active == '1' && env.FINISHED != '1'
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
@@ -149,7 +150,7 @@ jobs:
           ./verify.sh "$AXE/$PROJDIR"
 
       - name: PR (création ou mise à jour)
-        if: steps.state.outputs.active != '0' && env.FINISHED != '1'
+        if: steps.state.outputs.active == '1' && env.FINISHED != '1'
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
