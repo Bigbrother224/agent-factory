@@ -39,6 +39,13 @@ Dernière mise à jour : 2026-11-03
 - **Pre-flight du skill exécuté** : `scripts/preflight.mjs` → 0 violation dure après correctifs (outline:focus-visible ajouté, em dash supprimé) ; 3 warnings assumés (CDN fonts avec fallback hors ligne, micro-étiquettes sous la limite).
 - Fonctionnalités v2 intactes : 3 axes, fil de communication + composeur !fix/note, portes 1/2, relance flotte, rejet motivé, pose d'axe, portfolio main avec flag README.
 
+## Fait — tour 9 (2026-11-03, usine déportée : zéro dépendance au Mac)
+- **Toute l'usine tourne sur VM GitHub gratuites** (sandbox neuve par run) : `chantier.yml` (résident, toutes les 2 h — roadmap→tranche→arbitre→PR, avec feedback kimi injecté et garde-fous : session stérile = échec, arbitre rouge = rien poussé), `scout.yml` (quotidien 08:30, `fleet/scout.py` autonome : digest réel + nemotron + issue), plus les existants fleet/revue/auto-merge.
+- Mac déchargé : launchd chantier déchargé, cron scout retiré. `scripts/chantier.sh` et `scout-daily.sh` gardés comme fallback local.
+- Preuves du tour : cycle résident sur VM (T3 partiellement appliqué, échec proprement absorbé — l'arbitre a refusé, rien de cassé), 3 bugs de workflow corrigés en itérant (sentinelle null vs '0', AXE non exporté, garde-fou mesuré après la session).
+- **Quota (décision à trancher)** : repo privé = 2000 min Actions/mois ≈ 2-4 cycles/jour → cron réglé sur 2 h. Repo **public** = minutes standard illimitées + branch protection gratuite + portfolio visible des recruteurs.
+- **Option serveur dédié (si besoin persistant) : Oracle Cloud Always Free** — 4 cœurs ARM Ampere + 24 Go RAM, gratuit à vie, carte demandée à l'inscription sans débit. Pour un daemon 24/7 ou un self-hosted runner.
+
 ## Prochaine étape
 Toi : recharger http://localhost:7777 (design refondu), puis trancher la PR #10 (couche qualité, kimi NO-GO : lire la revue sur la carte ou `gh pr view 10 -R Bigbrother224/agent-factory`), et demain valider le premier cycle scout complet sous les 3 axes.
 
