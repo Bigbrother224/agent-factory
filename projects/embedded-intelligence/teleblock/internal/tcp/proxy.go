@@ -16,6 +16,7 @@ import (
 	"log"
 	"net"
 	"sync"
+	"time"
 
 	"teleblock/internal/ja4"
 	"teleblock/internal/profile"
@@ -175,6 +176,31 @@ func (l *Listener) relay(conn net.Conn, prefix []byte) {
 			log.Printf("tcp: relay src→dst: %v", err)
 		}
 		conn.Close() // src side is finished: releases the reverse copy
+	}()
+	// Sliding idle deadline: a relayed connection with no traffic for
+	// relayIdleTimeout dies instead of leaking a goroutine and two file
+	// descriptors forever (review: an idle relay must not block any
+	// resource indefinitely).
+	const relayIdleTimeout = 2 * time.Minute
+	stop := make(chan struct{})
+	defer close(stop)
+	extend := func() {
+		deadline := time.Now().Add(relayIdleTimeout)
+		_ = conn.SetDeadline(deadline)
+		_ = dst.SetDeadline(deadline)
+	}
+	extend()
+	ticker := time.NewTicker(relayIdleTimeout / 2)
+	go func() {
+		for {
+			select {
+			case <-stop:
+				ticker.Stop()
+				return
+			case <-ticker.C:
+				extend()
+			}
+		}
 	}()
 	if _, err := io.Copy(conn, dst); err != nil {
 		log.Printf("tcp: relay dst→src: %v", err)

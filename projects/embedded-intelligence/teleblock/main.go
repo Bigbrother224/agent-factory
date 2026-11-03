@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"teleblock/internal/dns"
 	"teleblock/internal/observe"
@@ -97,7 +98,17 @@ func main() {
 		dash := web.New(router, known)
 		log.Printf("teleblock: dashboard on http://localhost%s", *webListen)
 		go func() {
-			if err := http.ListenAndServe(*webListen, dash); err != nil {
+			// Timeouts explicites : un démon réseau embarqué sans ReadHeader/
+			// Idle timeout est une surface DoS triviale (revue).
+			srv := &http.Server{
+				Addr:              *webListen,
+				Handler:           dash,
+				ReadHeaderTimeout: 10 * time.Second,
+				ReadTimeout:       30 * time.Second,
+				WriteTimeout:      30 * time.Second,
+				IdleTimeout:       90 * time.Second,
+			}
+			if err := srv.ListenAndServe(); err != nil {
 				log.Printf("teleblock: dashboard stopped: %v", err)
 			}
 		}()

@@ -68,7 +68,10 @@ func (r *Router) EnableLearning(s *observe.Store) {
 
 // Assign binds a client IP to a brand profile. With learning enabled the
 // device also starts (or resumes) its observation period; a failure to
-// persist the learning state fails the assignment.
+// persist the learning state fails the assignment. EnableLearning is a
+// SETUP call, not concurrent with Assign (documented contract, review): a
+// swap of r.learn between the two critical sections is out of scope — the
+// router is built before it serves traffic.
 func (r *Router) Assign(ip net.IP, brand string) error {
 	if ip == nil {
 		return errors.New("invalid device IP")
@@ -160,12 +163,26 @@ func (r *Router) Verdict(ip net.IP, domain string) rules.Verdict {
 	return rules.Verdict(learn.Decide(ip, domain))
 }
 
+// observeVerdict maps a rules verdict onto the observe store's own
+// vocabulary through an explicit branch: the two enums must never be
+// conflated by a plain type conversion (review).
+func observeVerdict(v rules.Verdict) observe.Verdict {
+	switch v {
+	case rules.Block:
+		return observe.Block
+	case rules.Allow:
+		return observe.Allow
+	default:
+		return observe.Observe
+	}
+}
+
 // record feeds the observed domain to the learning store, with the verdict
 // its brand rule set proposes. A persistence failure does not change the
 // verdict: it is logged and left to the next query to fix. Toute lecture
 // d'état du routeur a été faite sous le RLock de Verdict avant l'appel.
 func (r *Router) record(learn *observe.Store, ip net.IP, brand string, set rules.Set, domain string) {
-	if err := learn.Learn(ip, brand, domain, observe.Verdict(set.Verdict(domain))); err != nil {
+	if err := learn.Learn(ip, brand, domain, observeVerdict(set.Verdict(domain))); err != nil {
 		log.Printf("profile: device %s: record %s: %v", ip, domain, err)
 	}
 }
