@@ -46,6 +46,11 @@ pendant que tu ne regardes pas.**
 1. Approuver une idée : `gh issue edit <N> -R Bigbrother224/agent-factory --add-label idea/approved` (l'issue doit porter un label `axe/*`)
 2. Merger la PR (après CI verte + revue GO) : `gh pr merge <N> -R Bigbrother224/agent-factory`
 
+**Promotion portfolio** : un projet bien exécuté devient un repo public autonome
+(avec sa CI) : `scripts/publier.sh <axe>/<projet>`. Garde-fous : arbitre vert +
+README anglais niveau portfolio obligatoires — l'usine produit ce README via le
+chantier avant que la publication soit possible.
+
 **Voir l'avancement :**
 ```bash
 gh issue list -R Bigbrother224/agent-factory --label idea/draft   # idées en attente (porte 1)
