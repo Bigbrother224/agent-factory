@@ -53,6 +53,15 @@ Dernière mise à jour : 2026-11-03
   - `example-hello` : 2 → 8 tests réels (l'arbitre reste sans exception).
 - Tests locaux : vert sur les 2 projets de main (13 + 27 tests), négatif prouvé (projet à 2 tests → REFUSÉ, exit 1).
 
+## Fait — tour 7 (2026-11-03, 2e agent — couche qualité, PR `fix/qualite` empilée sur `fix/c-verificateur`)
+- **🚨 URGENT (action humaine)** : abonnement Ollama en impayé — l'API répond `403 payment past due` → flotte B et revue kimi échoueront sur tous les prochains cycles. À régler : https://ollama.com/settings/billing. (Le !fix motdujour du 08:31 a pu échouer pour ça.)
+- **Panne découverte** : le cron scout du 2026-11-03 08:30 a ÉCHOUÉ (auth pi absente du cron : `PI_PROVIDER`/`OLLAMA_API_KEY` sont dans .zshrc). Fixé dans scout-daily.sh (résolution trousseau + PI_PROVIDER explicite). De plus, toute panne du pipeline poste maintenant une issue « ⚠️ » sur le bus — plus de panne silencieuse.
+- **Qualité des idées (groupe A, 2 agents)** : le scout propose désormais 3 candidats DISTINCTS ; un **Sélectionneur** (pi-team raisonneur, anti-hallucination) vérifie les sources, note sur 5 axes (ancrage, douleur, différenciation, faisabilité std-lib, valeur d'usage) et rédige le md COMPLET du gagnant. Aucune idée publiée sans tri. TEMPLATE enrichi : pourquoi maintenant, choix du langage JUSTIFIÉ, périmètre/hors-périmètre, critères de succès mesurables.
+- **Qualité du code (groupes B/C)** : nouveau `fleet/BAREME.md` (efficacité, intelligence, idiomatisme, choix de langage, design, tests — anti-patterns = refus), joint au brief de B (fleet.yml) et à l'invite du réviseur ; CONTRAT-B règle 5 durcie (vert ≠ bon).
+- **Revue renforcée** (`fleet/revue.py`) : le barème est intégré à l'invite, notes 0-5 par dimension, verdict GO/NO-GO inchangé (parsable), nuance pour les PRs d'infra (juge l'orchestration, pas le périmètre).
+- **Nouvel agent — Correcteur (C3)** : workflow `correcteur.yml` (patrouille */20 min) + `fleet/correcteur-queue.py` : dernière revue NO-GO → session Aider qui corrige les BLOQUANT/SÉRIEUX sur la branche de la PR, arbitre vert, push → la revue repart (synchronize). Max 2 cycles, puis `revue/bloquee` → porte 2 humaine. Une revue en PANNE ne consomme jamais un cycle. File testée en lecture sur le repo réel (zéro faux positif).
+- Non testable localement tant que l'impayé Ollama n'est pas réglé (revue.py : 403 vérifié en direct).
+
 ## Prochaine étape
 Porte 2 : trancher la PR #5 (`gh pr merge 5 -R Bigbrother224/agent-factory` ou rejet). Ensuite, l'usine tourne seule : le cron scout (08:30 UTC) poste une idée/jour, tu approuves (`idea/approved`), la flotte construit, la CI arbitre, tu merges.
 

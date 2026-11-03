@@ -31,6 +31,7 @@ Relis uniquement le diff ci-dessous. Réponds en français, format markdown STRI
 Pour chacun : `[BLOQUANT|SÉRIEUX|MINEUR]` + fichier/ligne + explication 1-2 phrases + ce qu'il faudrait faire.
 BLOQUANT ou SÉRIEUX : tout écart au barème qui dégrade durablement le projet — algorithme naïf inadapté, mauvaise structure de données, code non idiomatique, design de module incohérent, tests limités au happy path, modification hors de `projects/`.
 MINEUR : cosmétique ou hypothétique. Si un problème n'est pas PROUVÉ par le diff, marque-le explicitement comme hypothèse.
+Exception : un diff qui modifie l'usine elle-même (`.github/`, `fleet/`, `verify.sh` — maintenance de l'orchestration) est légitime. Ne le juge pas au périmètre `projects/`, mais à la robustesse de l'orchestration : races, échecs silencieux, boucles infinies, secrets mal gérés.
 
 ### Notes qualité (0-5, sans complaisance)
 Une ligne par dimension, format `Efficacité : N/5 — une phrase de justification.` :

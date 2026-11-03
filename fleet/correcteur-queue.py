@@ -13,32 +13,50 @@ Sortie stdout : une ligne TSV par action  `action <TAB> numéro <TAB> branche <T
 Le corps de la dernière revue est sauvé dans /tmp/correcteur-<num>-revue.md (action correct)."""
 import json
 import os
+import re
 import subprocess
 import sys
 
-REPO = os.environ.get("GITHUB_REPOSITORY") or subprocess.run(
-    ["git", "config", "--get", "remote.origin.url"], capture_output=True, text=True
-).stdout.strip().replace(":", "/").removesuffix(".git").removeprefix("https://").removeprefix("git@")
+
+def parse_repo(url):
+    """owner/repo depuis une remote https ou ssh, sans corruption d'URL."""
+    url = (url or "").strip().removesuffix(".git")
+    m = re.match(r"(?:https?://[^/]+/|git@[^/]+[:/])(.+?/.+)$", url)
+    return m.group(1) if m else url
+
+
+REPO = os.environ.get("GITHUB_REPOSITORY") or parse_repo(
+    subprocess.run(["git", "config", "--get", "remote.origin.url"], capture_output=True, text=True).stdout
+)
 
 
 def gh(*args):
+    """Commandes gh de haut niveau (pr, issue…) — --repo est supporté."""
     r = subprocess.run(["gh", *args, "--repo", REPO], capture_output=True, text=True, check=False)
     return r.stdout if r.returncode == 0 else ""
 
 
 def gh_api(endpoint):
-    out = gh("api", endpoint)
+    """Appel REST API — endpoints ABSOLUS requis (gh api ne connaît pas --repo).
+    Une erreur (404, 5xx, auth) est loggée sur stderr et rend {} : jamais d'échec silencieux total."""
+    r = subprocess.run(
+        ["gh", "api", f"/repos/{REPO}/{endpoint}"], capture_output=True, text=True, check=False
+    )
+    if r.returncode != 0:
+        print(f"[correcteur-queue] API {endpoint} → échec {r.returncode} : {r.stderr.strip()[:120]}", file=sys.stderr)
+        return {}
     try:
-        return json.loads(out)
+        return json.loads(r.stdout)
     except (json.JSONDecodeError, TypeError):
         return {}
 
 
 def slug_of(title):
-    title = title or ""
+    title = (title or "").strip().lower()
     if not title.startswith("["):
         return ""
-    return title[1 : title.find("]")] if "]" in title else ""
+    end = title.find("]")
+    return title[1:end] if end > 0 else ""
 
 
 def main():
@@ -65,7 +83,13 @@ def main():
         if "**NO-GO**" not in body:
             continue  # GO : rien à faire
 
-        cycles = sum(1 for c in comments if (c.get("body") or "").startswith("## Correcteur"))
+        # Cycles réellement consommés : corrections tentées (cycle) ou échouées (échec).
+        # Le BLOCAGE final ne consomme pas de cycle (il n'y en a plus à consommer).
+        cycles = sum(
+            1
+            for c in comments
+            if (c.get("body") or "").startswith(("## Correcteur — cycle", "## Correcteur — échec"))
+        )
 
         # Push après la dernière revue ? → la revue suivante est en cours, on attend.
         commit = gh_api(f"commits/{oid}")
