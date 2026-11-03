@@ -168,41 +168,46 @@ func (l *Listener) relay(conn net.Conn, prefix []byte) {
 		conn.Close()
 		return
 	}
+	// Copie à deadline GLISSANTE par buffer : la deadline est repoussée à
+	// chaque trafic réel, pas par un timer aveugle (revue : le ticker
+	// entretenait les relais inactifs indéfiniment) — un relais sans trafic
+	// pendant relayIdleTimeout meurt, un relais actif vit.
+	const relayIdleTimeout = 2 * time.Minute
+	extend := func() {
+		_ = conn.SetDeadline(time.Now().Add(relayIdleTimeout))
+		_ = dst.SetDeadline(time.Now().Add(relayIdleTimeout))
+	}
+	copySlide := func(w io.Writer, r io.Reader) (int64, error) {
+		var total int64
+		buf := make([]byte, 32*1024)
+		for {
+			extend()
+			n, err := r.Read(buf)
+			if n > 0 {
+				written, wErr := w.Write(buf[:n])
+				total += int64(written)
+				if wErr != nil {
+					return total, wErr
+				}
+			}
+			if err == io.EOF {
+				return total, nil
+			}
+			if err != nil {
+				return total, err
+			}
+		}
+	}
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		if _, err := io.Copy(dst, conn); err != nil {
+		if _, err := copySlide(dst, conn); err != nil {
 			log.Printf("tcp: relay src→dst: %v", err)
 		}
 		conn.Close() // src side is finished: releases the reverse copy
 	}()
-	// Sliding idle deadline: a relayed connection with no traffic for
-	// relayIdleTimeout dies instead of leaking a goroutine and two file
-	// descriptors forever (review: an idle relay must not block any
-	// resource indefinitely).
-	const relayIdleTimeout = 2 * time.Minute
-	stop := make(chan struct{})
-	defer close(stop)
-	extend := func() {
-		deadline := time.Now().Add(relayIdleTimeout)
-		_ = conn.SetDeadline(deadline)
-		_ = dst.SetDeadline(deadline)
-	}
-	extend()
-	ticker := time.NewTicker(relayIdleTimeout / 2)
-	go func() {
-		for {
-			select {
-			case <-stop:
-				ticker.Stop()
-				return
-			case <-ticker.C:
-				extend()
-			}
-		}
-	}()
-	if _, err := io.Copy(conn, dst); err != nil {
+	if _, err := copySlide(conn, dst); err != nil {
 		log.Printf("tcp: relay dst→src: %v", err)
 	}
 	dst.Close() // dst side is finished: releases the forward copy

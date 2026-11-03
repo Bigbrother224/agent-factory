@@ -33,10 +33,12 @@ const (
 // in observation, and its learned profile is enforced automatically once
 // its learning period has elapsed. It is safe for concurrent use.
 type Router struct {
-	mu      sync.RWMutex
-	devices map[string]string    // client IP -> brand
-	sets    map[string]rules.Set // brand -> rules
-	learn   *observe.Store       // nil: learning mode disabled
+	mu        sync.RWMutex
+	devices   map[string]string    // client IP -> brand
+	sets      map[string]rules.Set // brand -> rules
+	learn     *observe.Store       // nil: learning mode disabled
+	assignMu  sync.Mutex
+	assigning map[string]bool // affectations en cours (chemin froid) : Verdict rend Observe
 }
 
 // New returns a Router serving the given brand rule sets.
@@ -56,9 +58,10 @@ func New(sets map[string]rules.Set) *Router {
 func (r *Router) EnableLearning(s *observe.Store) {
 	if s != nil {
 		// The baseline resolves rule sets at call time; the sets map is
-		// immutable after New, so reading it takes no lock.
+		// immutable after New, so reading it takes no lock. Mapping explicite
+		// aux DEUX frontières (revue : une conversion brute à l'autre sens).
 		s.SetBaseline(func(brand, domain string) observe.Verdict {
-			return observe.Verdict(r.set(brand).Verdict(domain))
+			return observeVerdict(r.set(brand).Verdict(domain))
 		})
 	}
 	r.mu.Lock()
@@ -68,10 +71,10 @@ func (r *Router) EnableLearning(s *observe.Store) {
 
 // Assign binds a client IP to a brand profile. With learning enabled the
 // device also starts (or resumes) its observation period; a failure to
-// persist the learning state fails the assignment. EnableLearning is a
-// SETUP call, not concurrent with Assign (documented contract, review): a
-// swap of r.learn between the two critical sections is out of scope — the
-// router is built before it serves traffic.
+// persist the learning state fails the assignment. Atomicité vis-à-vis de
+// Verdict : un marqueur d'affectation rend Observe pendant l'opération
+// (revue : un Verdict intercalé voyait l'appareil Known du store mais
+// générique dans la map — profil appris pollué).
 func (r *Router) Assign(ip net.IP, brand string) error {
 	if ip == nil {
 		return errors.New("invalid device IP")
@@ -79,6 +82,18 @@ func (r *Router) Assign(ip net.IP, brand string) error {
 	if _, ok := r.sets[brand]; !ok {
 		return fmt.Errorf("unknown brand %q", brand)
 	}
+	key := ip.String()
+	r.assignMu.Lock()
+	if r.assigning == nil {
+		r.assigning = map[string]bool{}
+	}
+	r.assigning[key] = true
+	r.assignMu.Unlock()
+	defer func() {
+		r.assignMu.Lock()
+		delete(r.assigning, key)
+		r.assignMu.Unlock()
+	}()
 	// Persistance HORS r.mu : learn.Register a son propre verrou et fait de
 	// l'I/O disque ; garder r.mu pendant ce temps sérialise le chemin chaud
 	// Verdict (revue). Le pointeur learn est capturé SOUS le verrou (il est
@@ -94,7 +109,7 @@ func (r *Router) Assign(ip net.IP, brand string) error {
 		}
 	}
 	r.mu.Lock()
-	r.devices[ip.String()] = brand
+	r.devices[key] = brand
 	r.mu.Unlock()
 	return nil
 }
@@ -153,6 +168,16 @@ func (r *Router) Verdict(ip net.IP, domain string) rules.Verdict {
 	r.mu.RUnlock()
 	if learn == nil || state == DeviceUnknown {
 		return set.Verdict(domain)
+	}
+	// Affectation en cours sur cet appareil (revue) : défaut sûr, on
+	// n'observe pas encore (l'appareil redémarre sa période d'apprentissage).
+	if ip != nil {
+		r.assignMu.Lock()
+		starting := r.assigning[ip.String()]
+		r.assignMu.Unlock()
+		if starting {
+			return rules.Observe
+		}
 	}
 	if state == DeviceLearning {
 		r.record(learn, ip, brand, set, domain)

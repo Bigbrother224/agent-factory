@@ -141,7 +141,10 @@ func TestTLS12WithoutALPN(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Fingerprint: %v", err)
 	}
-	want := "t12d0303h1_7adbb56324b3_" + shortHash("000b")
+	// Références de hachage INDEPENDANTES (sha256 tronqués, calculés hors
+	// du package — revue : shortHash() testé par lui-même ne détecte pas
+	// sa propre régression).
+	want := "t12d0303h1_7adbb56324b3_bcb145a8c2a7"
 	if got != want {
 		t.Errorf("Fingerprint = %q, want %q", got, want)
 	}
@@ -179,7 +182,7 @@ func TestTLS13NoSNIAndNoALPN(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Fingerprint: %v", err)
 	}
-	want := "t13i010200_0f2cb44170f4_" + shortHash("000d,002b_1301,1302")
+	want := "t13i010200_0f2cb44170f4_2baf0d4a54e2"
 	if got != want {
 		t.Errorf("Fingerprint = %q, want %q", got, want)
 	}
