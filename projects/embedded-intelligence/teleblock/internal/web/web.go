@@ -155,11 +155,11 @@ func (s *Server) serveDashboard(w http.ResponseWriter, _ *http.Request) {
 	}
 	switch {
 	case tvs == 0:
-		data.TVsText = "No TV under protection yet"
+		data.TVsText = "Aucune TV sous protection pour l'instant"
 	case tvs == 1:
-		data.TVsText = "1 TV under protection"
+		data.TVsText = "1 TV sous protection"
 	default:
-		data.TVsText = fmt.Sprintf("%d TVs under protection", tvs)
+		data.TVsText = fmt.Sprintf("%d TV sous protection", tvs)
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := indexTmpl.Execute(w, data); err != nil {
