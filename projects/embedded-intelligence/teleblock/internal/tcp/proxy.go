@@ -124,7 +124,7 @@ func (l *Listener) handle(conn net.Conn) {
 	}
 
 	if sniName != "" {
-		switch l.router.Set(src).Verdict(sniName) {
+		switch l.router.Verdict(src, sniName) {
 		case rules.Block:
 			log.Printf("tcp: blocked SNI %s from %s", sniName, conn.RemoteAddr())
 			reset(conn)

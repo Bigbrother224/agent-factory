@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"teleblock/internal/dns"
+	"teleblock/internal/observe"
 	"teleblock/internal/profile"
 	"teleblock/internal/rules"
 	"teleblock/internal/tcp"
@@ -44,9 +45,22 @@ func main() {
 	var devices deviceFlags
 	flag.Var(&devices, "device", "TV to protect, as IP=brand (samsung, lg, sony, tcl, generic); repeatable")
 	tlsListen := flag.String("tls-listen", ":443", "local port where redirected HTTPS (443) traffic arrives for passive SNI inspection; empty disables")
+	observeState := flag.String("observe-state", "observe.json", "local JSON file holding the per-device learning state; empty disables learning mode")
 	flag.Parse()
 
+	var learn *observe.Store
+	if *observeState != "" {
+		store, err := observe.New(*observeState)
+		if err != nil {
+			log.Fatalf("observe state %s: %v", *observeState, err)
+		}
+		learn = store
+	}
 	router := profile.New(rules.DefaultSets())
+	if learn != nil {
+		router.EnableLearning(learn)
+		log.Printf("teleblock: per-device learning state %s, period %v", *observeState, observe.DefaultPeriod)
+	}
 	for _, d := range devices {
 		if err := router.Assign(net.ParseIP(d.ip), d.brand); err != nil {
 			log.Fatalf("device %s: %v", d.ip, err)
