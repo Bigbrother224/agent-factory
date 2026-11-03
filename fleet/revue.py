@@ -11,7 +11,19 @@ import urllib.request
 
 DIFF = open(sys.argv[1], encoding="utf-8").read()
 if len(DIFF) > 40000:
-    DIFF = DIFF[:40000] + "\n[… diff tronqué — taille plafonnée pour tenir dans le budget de tokens du réviseur …]"
+    # Manifeste des fichiers touchés : le réviseur doit savoir ce qu'il
+    # n'a PAS vu — sinon il conclut « absent » (bug réel : la scène E2E
+    # teleblock a été jugée absente trois fois alors qu'elle était
+    # simplement au-delà du plafond de tokens).
+    import re
+
+    manifest = sorted({m.group(2) for m in re.finditer(r"^diff --git a/(\S+) b/(\S+)", DIFF, re.M)})
+    DIFF = DIFF[:40000] + (
+        "\n[… diff tronqué — taille plafonnée pour tenir dans le budget de tokens du réviseur …]\n"
+        "\nManifeste des fichiers du diff complet. Ceux non visibles ci-dessus sont coupés "
+        "par le plafond : juge-les « non évalués », ne conclus JAMAIS à leur absence.\n"
+        + "\n".join("- " + f for f in manifest)
+    )
 
 BAREME = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "BAREME.md"), encoding="utf-8").read()
 
@@ -33,7 +45,7 @@ Pour chacun : `[BLOQUANT|SÉRIEUX|MINEUR]` + fichier/ligne + explication 1-2 phr
 BLOQUANT ou SÉRIEUX : tout écart au barème qui dégrade durablement le projet — algorithme naïf inadapté, mauvaise structure de données, code non idiomatique, design de module incohérent, tests limités au happy path, modification hors de `projects/`.
 MINEUR : cosmétique ou hypothétique. Si un problème n'est pas PROUVÉ par le diff, marque-le explicitement comme hypothèse.
 Exception : un diff qui modifie l'usine elle-même (`.github/`, `fleet/`, `verify.sh` — maintenance de l'orchestration) est légitime. Ne le juge pas au périmètre `projects/`, mais à la robustesse de l'orchestration : races, échecs silencieux, boucles infinies, secrets mal gérés.
-Exigence E2E (règle 7 du barème) : un projet dont la roadmap est terminée (proche du ship) SANS `tests/e2e.sh` réel démarrant le produit et vérifiant son comportement observable = NO-GO. Avant ce stade, signale son absence en SÉRIEUX.
+Exigence E2E (règle 7 du barème) : un projet dont la roadmap est terminée (proche du ship) SANS `tests/e2e.sh` réel démarrant le produit et vérifiant son comportement observable = NO-GO. Avant ce stade, signale son absence en SÉRIEUX — mais uniquement s'il n'apparaît ni dans le diff ni dans le manifeste des fichiers tronqués.
 
 ### Notes qualité (0-5, sans complaisance)
 Une ligne par dimension, format `Efficacité : N/5 — une phrase de justification.` :
