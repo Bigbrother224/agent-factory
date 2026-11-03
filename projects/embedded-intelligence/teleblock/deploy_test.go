@@ -76,6 +76,40 @@ func TestComposePersistsState(t *testing.T) {
 		"${TELEBLOCK_STATE:-./data}:/var/lib/teleblock")
 }
 
+// Contrat état install.sh ↔ compose : la gravity Pi-hole est importée
+// sous $TELEBLOCK_STATE, que l'installateur exporte — sans quoi le
+// conteneur monterait un autre répertoire que celui de l'import et la
+// fonctionnalité « déjà un Pi-hole » serait inopérante (bug réel relevé
+// par la revue : l'import écrivait dans deploy/data pendant que le
+// compose montait ${TELEBLOCK_STATE:-./data} jamais exporté).
+func TestInstallScriptExportsCoherentStatePath(t *testing.T) {
+	s := readDeployFile(t, filepath.Join("deploy", "install.sh"))
+	assertDeployContains(t, "deploy/install.sh", s,
+		`GRAVITY_OUT="$STATE_DIR/pihole-gravity.txt"`)
+	assertDeployContains(t, "deploy/install.sh", s,
+		`export TELEBLOCK_STATE="$STATE_DIR"`)
+}
+
+// Le chemin d'état part de TELEBLOCK_STATE quand l'opérateur l'impose,
+// sinon du deploy/data du dépôt — jamais d'un relatif ambigu.
+func TestInstallScriptHonorsTeleblockStateOverride(t *testing.T) {
+	s := readDeployFile(t, filepath.Join("deploy", "install.sh"))
+	assertDeployContains(t, "deploy/install.sh", s,
+		`STATE_DIR="${TELEBLOCK_STATE:-$PWD/deploy/data}"`)
+}
+
+// set -eu rend toute variable non définie fatale AVANT le message
+// d'erreur : TELEBLOCK_REPO doit donc être lu sous garde ${…:-} (bug
+// réel relevé par la revue : le cas principal mourait en « parameter
+// not set » au lieu d'expliquer le remède).
+func TestInstallScriptGuardsUnsetRepoVariable(t *testing.T) {
+	s := readDeployFile(t, filepath.Join("deploy", "install.sh"))
+	assertDeployContains(t, "deploy/install.sh", s, `[ -n "${TELEBLOCK_REPO:-}" ]`)
+	if strings.Contains(s, `[ -n "$TELEBLOCK_REPO" ]`) {
+		t.Errorf("install.sh : $TELEBLOCK_REPO non gardé — meurt sous set -u avant le message d'aide")
+	}
+}
+
 // La redirection iptables des flux TCP 443 bloqués (T1) exige NET_ADMIN
 // dans le conteneur.
 func TestComposeGrantsNETAdminForTCPRedirect(t *testing.T) {
@@ -165,11 +199,14 @@ func TestInstallScriptImportsExistingPiholeGravity(t *testing.T) {
 
 // Conflit de port : si un Pi-hole est détecté sur :53, TeleBlock bascule
 // sur :5353 et l'écrit dans deploy/.env (sinon le bind du compose échoue).
+// Le repli est validé comme réellement libre avant d'être retenu (revue :
+// un 5353 déjà occupé ferait échouer le bind au docker compose up).
 // Le choix reste surchargeable via TELEBLOCK_DNS_PORT.
 func TestInstallScriptAvoidsPort53Conflict(t *testing.T) {
 	s := readDeployFile(t, filepath.Join("deploy", "install.sh"))
 	assertDeployContains(t, "deploy/install.sh", s, "5353")
 	assertDeployContains(t, "deploy/install.sh", s, "TELEBLOCK_DNS_PORT=")
+	assertDeployContains(t, "deploy/install.sh", s, "port_free 5353")
 }
 
 // Garde-fou d'exécution : la syntaxe doit passer `sh -n` (POSIX strict).

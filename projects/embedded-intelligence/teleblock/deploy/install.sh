@@ -20,7 +20,8 @@
 # Variables d'environnement :
 #   TELEBLOCK_DIR       destination du clone (défaut /opt/teleblock)
 #   TELEBLOCK_REPO      url git du dépôt (obligatoire sans checkout local)
-#   TELEBLOCK_STATE     chemin d'état sur l'hôte (défaut : ./data du compose)
+#   TELEBLOCK_STATE     chemin d'état sur l'hôte (défaut : deploy/data du
+#                      dépôt ; l'installateur l'exporte pour le compose)
 #   TELEBLOCK_DNS_PORT  force le port DNS hôte (défait le repli 5353)
 
 set -eu
@@ -42,7 +43,7 @@ elif [ -f "$TELEBLOCK_DIR/deploy/docker-compose.yml" ]; then
 	cd "$TELEBLOCK_DIR"
 	log "sources existantes : $TELEBLOCK_DIR"
 else
-	[ -n "$TELEBLOCK_REPO" ] \
+	[ -n "${TELEBLOCK_REPO:-}" ] \
 		|| die "TELEBLOCK_REPO manquant : lancez sh deploy/install.sh depuis un clone, ou exportez TELEBLOCK_REPO=<url git>"
 	mkdir -p "$TELEBLOCK_DIR" \
 		|| die "impossible de créer $TELEBLOCK_DIR (relancer en root/sudo ?)"
@@ -53,7 +54,10 @@ else
 fi
 
 # 3. Pi-hole existant ? Import de sa gravity pour ne pas repartir de zéro.
-STATE_DIR="deploy/data"
+#    Le chemin d'état honore TELEBLOCK_STATE (le compose le montera tel
+#    quel) et devient absolu : la gravity importée atterrit exactement là
+#    où le conteneur la lira, quel que soit le répertoire d'appel.
+STATE_DIR="${TELEBLOCK_STATE:-$PWD/deploy/data}"
 GRAVITY_OUT="$STATE_DIR/pihole-gravity.txt"
 mkdir -p "$STATE_DIR"
 PIHOLE_PRESENT=0
@@ -77,14 +81,29 @@ elif docker ps --format '{{.Names}}' 2>/dev/null | grep -qi pihole; then
 	fi
 fi
 
-# 4. Port DNS hôte : 53 par défaut ; repli sur 5353 si un Pi-hole occupe déjà 53.
+# 4. Port DNS hôte : 53 par défaut ; repli sur 5353 (puis 5354) si un
+#    Pi-hole occupe déjà 53 — le repli est validé comme réellement libre
+#    avant d'écrire deploy/.env (sinon le bind du compose échouerait).
+port_free() {
+	command -v nc >/dev/null 2>&1 || return 0 # nc absent : présumé libre
+	! nc -z 127.0.0.1 "$1" >/dev/null 2>&1
+}
+
 if [ "$PIHOLE_PRESENT" -eq 1 ] && [ -z "$DNS_PORT" ]; then
-	DNS_PORT=5353
-	log "Pi-hole détecté : TeleBlock écoutera sur :5353 (le port 53 reste à pi-hole-FTL)"
+	if port_free 5353; then
+		DNS_PORT=5353
+	elif port_free 5354; then
+		DNS_PORT=5354
+	else
+		die "Pi-hole occupe :53 et aucun port de repli libre : forcez TELEBLOCK_DNS_PORT=<port>"
+	fi
+	log "Pi-hole détecté : TeleBlock écoutera sur :$DNS_PORT (le port 53 reste à pi-hole-FTL)"
 fi
 printf 'TELEBLOCK_DNS_PORT=%s\n' "${DNS_PORT:-53}" >deploy/.env
 log "port DNS hôte : ${DNS_PORT:-53} (deploy/.env)"
 
-# 5. Démarrage de la pile (état persistant dans $STATE_DIR).
+# 5. Démarrage de la pile (état persistant dans $STATE_DIR, exporté pour
+#    le compose : la gravity importée est visible dans le conteneur).
+export TELEBLOCK_STATE="$STATE_DIR"
 docker compose -f deploy/docker-compose.yml up -d --build
 log "TeleBlock actif : DNS sur :${DNS_PORT:-53}/udp+tcp, état persistant dans $STATE_DIR"
