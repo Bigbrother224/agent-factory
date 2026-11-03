@@ -109,7 +109,18 @@ fi
 log "tranche : ${TRANCHE#*] }"
 
 # 6) L'ÉQUIPE : pi-team crew (planificateur → codeur → verifieur ; modèles flash/nemotron)
-~/bin/pi-team crew "Dans $PROJ/ : implémente la tranche «${TRANCHE#*] }». Lis d'abord $PROJ/ROADMAP.md pour le contexte global. Contraintes : ne modifie rien en dehors de $PROJ/, ./verify.sh $AXE/$PROJDIR doit finir VERT (exécute-le et rapporte sa sortie réelle), puis coche la tranche [x] dans $PROJ/ROADMAP.md." "$WT" >> /tmp/pi-team-plan.out 2>&1 || true
+#    Le crew reçoit EN PLUS la dernière revue kimi de la PR : la boucle apprend.
+FEEDBACK=""
+PR_NOW=$(gh pr list -R "$R" --head "$BR" --state open --json url -q '.[0].url' 2>/dev/null || true)
+if [ -n "$PR_NOW" ]; then
+  PR_NUM="${PR_NOW##*/}"
+  gh pr view "$PR_NUM" -R "$R" --json comments \
+    -q '[.comments[].body] | map(select(startswith("## Revue du groupe C"))) | last' > /tmp/usine-chantier-revue.md 2>/dev/null || true
+  if [ -s /tmp/usine-chantier-revue.md ]; then
+    FEEDBACK="AVANT de coder : lis /tmp/usine-chantier-revue.md — la dernière revue kimi de la PR chantier. Corrige en priorité les points BLOQUANT/SÉRIEUX qui concernent $PROJ/ (ignore ceux hors périmètre). "
+  fi
+fi
+~/bin/pi-team crew "${FEEDBACK}Dans $PROJ/ : implémente la tranche «${TRANCHE#*] }». Lis d'abord $PROJ/ROADMAP.md pour le contexte global. Contraintes : ne modifie rien en dehors de $PROJ/, ./verify.sh $AXE/$PROJDIR doit finir VERT (exécute-le et rapporte sa sortie réelle), puis coche la tranche [x] dans $PROJ/ROADMAP.md." "$WT" >> /tmp/pi-team-plan.out 2>&1 || true
 CREW=$(grep -o '/tmp/pi-crew-[^ ]*' /tmp/pi-team-plan.out | tail -1)
 [ -n "$CREW" ] && log "rapports d'équipe : $CREW"
 
