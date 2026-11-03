@@ -41,12 +41,23 @@ jobs:
           git config user.email "actions@users.noreply.github.com"
           aider --version
 
-      - name: Brief (contrat B + spec de l'issue)
+      - name: Brief (contrat B + spec de l'issue) + garde-fous
         env:
           GH_TOKEN: ${{ github.token }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
           ISSUE_TITLE: ${{ github.event.issue.title }}
         run: |
+          # Garde anti double-run : si l'issue est déjà livrée (ship/pr posé par un
+          # cycle précédent, ex. label retiré/remis), on ne relance pas la flotte.
+          LABELS=$(gh issue view "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --json labels -q '[.labels[].name]' 2>/dev/null || echo '[]')
+          if printf '%s' "$LABELS" | grep -q 'ship/pr'; then
+            gh issue comment "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" \
+              --body "Flotte B ignorée : cette idée est déjà livrée (label ship/pr — PR en attente de porte 2). Pour la corriger, commente \`!fix …\` sur cette issue."
+            echo "DUPLICATE=1" >> "$GITHUB_ENV"
+            exit 0
+          fi
+          # Hygiène : approuvée ≠ brouillon ; on retire le label de la porte 1 passée.
+          gh issue edit "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --remove-label "idea/draft" >/dev/null 2>&1 || true
           gh issue view "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --json body -q .body > /tmp/spec.md
           SLUG=$(python3 fleet/slugify.py "$ISSUE_TITLE")
           echo "SLUG=$SLUG" >> "$GITHUB_ENV"
@@ -67,8 +78,8 @@ jobs:
         env:
           OPENAI_API_KEY: ${{ secrets.OLLAMA_API_KEY }}
         run: |
-          AIDER="aider --model openai/glm-5.3:cloud --openai-api-base https://ollama.com/v1 \
-            --weak-model openai/glm-5.3-flash:cloud --edit-format udiff \
+          if [ "${DUPLICATE:-0}" = "1" ]; then echo ">>> Doublon ignoré (ship/pr déjà posé)."; exit 0; fi
+          AIDER="aider --model openai/glm-5.3:cloud --openai-api-base https://ollama.com/v1 \            --weak-model openai/glm-5.3-flash:cloud --edit-format udiff \
             --yes-always --no-auto-lint --no-check-update \
             --no-attribute-author --no-attribute-committer \
             --no-attribute-commit-message-author --no-attribute-commit-message-committer"
@@ -86,38 +97,93 @@ jobs:
           ./verify.sh "$SLUG" > /tmp/verify-final.txt 2>&1 || true
           echo "GREEN=$GREEN" >> "$GITHUB_ENV"
 
-      - name: PR (si vert) ou verdict verify/failed (si rouge après 3)
+      - name: PR + arbitrage CI (si vert) ou verdict verify/failed (si rouge après 3)
         env:
           GH_TOKEN: ${{ github.token }}
+          OPENAI_API_KEY: ${{ secrets.OLLAMA_API_KEY }}
         run: |
-          if [ "$GREEN" = "1" ]; then
-            git add -A
-            git commit -m "flotte B : $SLUG (MVP, verify.sh vert)" --allow-empty || true
-            git checkout -b "fleet/$SLUG"
-            git push -u origin "fleet/$SLUG" --force
-            {
-              echo "Livrable de la flotte B (Aider × glm-5.3, plan Ollama) pour l'issue #$ISSUE_NUMBER."
-              echo
-              echo "Sortie finale de l'arbitre \`./verify.sh $SLUG\` :"
-              echo '```'
-              tail -15 /tmp/verify-final.txt
-              echo '```'
-            } > /tmp/pr-body.md
-            gh pr create --repo "$GITHUB_REPOSITORY" --base main --head "fleet/$SLUG" \
-              --title "[$SLUG] MVP — flotte B (Aider)" --body-file /tmp/pr-body.md
-            PR_URL=$(gh pr list --repo "$GITHUB_REPOSITORY" --head "fleet/$SLUG" --json url -q '.[0].url')
-            echo "--- Attente de la CI (groupe C) sur $PR_URL ---"
-            gh pr checks "$PR_URL" --watch > /dev/null 2>&1 || true
-            if gh pr checks "$PR_URL" > /dev/null 2>&1; then
-              gh pr edit "$PR_URL" --add-label "verify/ok"
-              gh issue edit "$ISSUE_NUMBER" --add-label "ship/pr"
-              echo ">>> verify/ok + ship/pr posés — porte 2 humaine."
-            else
-              gh issue edit "$ISSUE_NUMBER" --add-label "verify/failed"
-              echo ">>> CI rouge malgré l'arbitre local — verify/failed posé."
-            fi
-          else
+          if [ "${DUPLICATE:-0}" = "1" ]; then exit 0; fi
+          if [ "$GREEN" != "1" ]; then
             gh issue comment "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" \
               --body "3 tentatives épuisées : l'arbitre ./verify.sh reste rouge. Label verify/failed posé, pas de PR. Sortie finale : $(tail -3 /tmp/verify-final.txt | tr '\n' ' ')"
             gh issue edit "$ISSUE_NUMBER" --add-label "verify/failed"
+            exit 0
+          fi
+          git add -A
+          git commit -m "flotte B : $SLUG (MVP, verify.sh vert)" --allow-empty || true
+          git checkout -b "fleet/$SLUG"
+          git push -u origin "fleet/$SLUG" --force
+          {
+            echo "Livrable de la flotte B (Aider × glm-5.3, plan Ollama) pour l'issue #$ISSUE_NUMBER."
+            echo
+            echo "Sortie finale de l'arbitre \`./verify.sh $SLUG\` :"
+            echo '```'
+            tail -15 /tmp/verify-final.txt
+            echo '```'
+          } > /tmp/pr-body.md
+          gh pr create --repo "$GITHUB_REPOSITORY" --base main --head "fleet/$SLUG" \
+            --title "[$SLUG] MVP — flotte B (Aider)" --body-file /tmp/pr-body.md
+          PR_URL=$(gh pr list --repo "$GITHUB_REPOSITORY" --head "fleet/$SLUG" --json url -q '.[0].url')
+
+          # --- Groupe C : arbitrage CI avec relances auto (max 3 cycles). ---
+          # Si la CI est rouge alors que l'arbitre local est vert (écart d'environnement),
+          # une session Aider correctrice diagnostique le log CI et pousse un correctif,
+          # jusqu'à 3 fois. verify/failed ne tombe qu'après épuisement réel des relances.
+          AIDER="aider --model openai/glm-5.3:cloud --openai-api-base https://ollama.com/v1 \
+            --weak-model openai/glm-5.3-flash:cloud --edit-format udiff \
+            --yes-always --no-auto-lint --no-check-update \
+            --no-attribute-author --no-attribute-committer \
+            --no-attribute-commit-message-author --no-attribute-commit-message-committer"
+          CI_GREEN=0
+          for CI_TRY in 1 2 3; do
+            echo "=== CI (groupe C) — cycle $CI_TRY/3 sur $PR_URL ==="
+            # Les checks peuvent être en file d'attente : attendre qu'ils existent (max 5 min).
+            for _ in $(seq 1 30); do
+              N=$(gh pr checks "$PR_URL" --repo "$GITHUB_REPOSITORY" --json name 2>/dev/null | jq 'length' 2>/dev/null || echo 0)
+              [ "${N:-0}" -gt 0 ] 2>/dev/null && break
+              sleep 10
+            done
+            gh pr checks "$PR_URL" --repo "$GITHUB_REPOSITORY" --watch >/dev/null 2>&1 || true
+            if gh pr checks "$PR_URL" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+              CI_GREEN=1; break
+            fi
+            [ "$CI_TRY" = "3" ] && break
+            # Récupérer le log du check en échec et le donner à la session correctrice.
+            FAIL_LINK=$(gh pr checks "$PR_URL" --repo "$GITHUB_REPOSITORY" --json name,state,link \
+              -q '[.[] | select(.state=="FAILURE" or .state=="fail")][0].link' 2>/dev/null || true)
+            if [ -n "$FAIL_LINK" ]; then
+              gh run view "$(basename "$FAIL_LINK")" --repo "$GITHUB_REPOSITORY" --log-failed > /tmp/ci-red.txt 2>&1 \
+                || echo "log CI indisponible" > /tmp/ci-red.txt
+            else
+              echo "log CI indisponible" > /tmp/ci-red.txt
+            fi
+            {
+              echo "La CI GitHub est ROUGE alors que l'arbitre local \`./verify.sh $SLUG\` est vert (écart d'environnement). Extrait du log du check en échec :"
+              echo
+              echo '```'
+              tail -40 /tmp/ci-red.txt
+              echo '```'
+              echo
+              echo "Diagnostique l'écart, corrige la vraie cause UNIQUEMENT dans projects/$SLUG/, puis assure-toi que ./verify.sh $SLUG reste vert."
+            } > /tmp/ci-fix.md
+            $AIDER --test-cmd "./verify.sh $SLUG" --auto-test --message-file /tmp/ci-fix.md || true
+            if ! ./verify.sh "$SLUG" > /tmp/verify-retry.txt 2>&1; then
+              echo ">>> La relance a cassé l'arbitre local — arrêt des relances CI."
+              cp /tmp/verify-retry.txt /tmp/verify-final.txt 2>/dev/null || true
+              break
+            fi
+            git add -A
+            git commit -m "relance CI $CI_TRY/3 : correctif $SLUG" --allow-empty || true
+            git push origin "fleet/$SLUG" --force
+          done
+
+          if [ "$CI_GREEN" = "1" ]; then
+            gh pr edit "$PR_URL" --add-label "verify/ok"
+            gh issue edit "$ISSUE_NUMBER" --add-label "ship/pr" --remove-label "verify/failed"
+            echo ">>> verify/ok + ship/pr posés — porte 2 humaine."
+          else
+            gh pr comment "$PR_URL" --repo "$GITHUB_REPOSITORY" \
+              --body "CI rouge après 3 cycles correctifs (relances auto épuisées). Dernier échec : $(tail -3 /tmp/ci-red.txt 2>/dev/null | tr '\n' ' ')" || true
+            gh issue edit "$ISSUE_NUMBER" --add-label "verify/failed"
+            echo ">>> verify/failed posé après épuisement des relances."
           fi

@@ -1,6 +1,6 @@
 # État — agent-factory (usine à projets, 3 groupes d'agents)
 
-Dernière mise à jour : 2026-11-02
+Dernière mise à jour : 2026-11-03
 
 ## Vision (verrouillée le 2026-11-02 au matin)
 - Usine non-stop : les agents trouvent des idées, les construisent, les vérifient ; l'humain n'a que 2 portes : approuver l'idée (`idea/approved`), merger la PR.
@@ -39,6 +39,19 @@ Dernière mise à jour : 2026-11-02
 - Test end-to-end réel sur l'issue #4 (MotDuJour) : session Aider 100% autonome dans le runner (brief → code → verify.sh VERT → branche poussée). Deux réglages d'infra posés en route : permission Actions de créer des PRs ; `--force` sur les pushes fleet (idempotence des reruns).
 - PR #5 ouverte, CI verte (run 41516914883), labels `verify/ok` + `ship/pr` posés — **en attente de ta porte 2**.
 - Resté à faire dans ce circuit : la revue lecture-seule du groupe C (l'humain relit la PR au merge) — pour l'instant C = CI seul.
+
+## Fait — tour 6 (2026-11-03, 2e agent — rôle C-Vérificateur, PR `fix/c-verificateur`)
+- Audit parallèle lecture-seule du pipeline (zéro collision avec l'agent live, travail en worktree) — 6 failles identifiées, dont :
+  1. `verify/failed` cul-de-sac : CI rouge sur la PR → label posé, RIEN ne relançait B.
+  2. Règle 3 du contrat (min 8 tests) déclarative, non arbitrée par la CI.
+  3. `!fix` sur un projet à PR fermée : commentaire posté sur la PR fermée au lieu de la rouvrir.
+  4. Retrait/remise de `idea/approved` = double session Aider possible (double PR).
+- Correctifs livrés dans la PR (porte 2 humaine) :
+  - `fleet.yml` : **boucle de relance CI** — CI rouge malgré arbitre local vert → log d'échec extrait → session Aider correctrice → push → ré-arbitrage, max 3 cycles ; `verify/failed` ne tombe qu'après épuisement réel. + garde anti double-run (skip si `ship/pr` déjà posé) + hygiène (`idea/draft` retiré à l'approbation).
+  - `verify.sh` : **comptage des tests** (node/go/python) — refus explicite si < 8 tests (contrat B règle 3 désormais arbitré).
+  - `retour-humain.yml` : rouvre la PR fermée si besoin ; retire le `verify/failed` stale quand le retour passe au vert.
+  - `example-hello` : 2 → 8 tests réels (l'arbitre reste sans exception).
+- Tests locaux : vert sur les 2 projets de main (13 + 27 tests), négatif prouvé (projet à 2 tests → REFUSÉ, exit 1).
 
 ## Prochaine étape
 Porte 2 : trancher la PR #5 (`gh pr merge 5 -R Bigbrother224/agent-factory` ou rejet). Ensuite, l'usine tourne seule : le cron scout (08:30 UTC) poste une idée/jour, tu approuves (`idea/approved`), la flotte construit, la CI arbitre, tu merges.
