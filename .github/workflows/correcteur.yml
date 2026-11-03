@@ -1,0 +1,170 @@
+name: correcteur
+
+# Groupe C3 — le maillon auto-réparant de la qualité : patrouille les PRs ouvertes.
+# Dernière revue NO-GO → session Aider qui corrige les problèmes BLOQUANT/SÉRIEUX,
+# arbitre verify.sh vert, push → la revue (revue.yml) repart sur synchronize.
+# Max 2 cycles correctifs par PR ; ensuite un commentaire de blocage + label
+# revue/bloquee → porte 2 humaine. Une revue en PANNE ne consomme JAMais un cycle.
+
+on:
+  schedule:
+    - cron: "*/20 * * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: correcteur
+  cancel-in-progress: false
+
+jobs:
+  patrouille:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GITHUB_REPOSITORY: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: File des PRs à traiter
+        id: queue
+        run: |
+          python3 fleet/correcteur-queue.py > /tmp/queue.tsv
+          N=$(wc -l < /tmp/queue.tsv | tr -d ' ')
+          echo "count=$N" >> "$GITHUB_OUTPUT"
+          echo ">>> File : $N action(s)"
+          cat /tmp/queue.tsv
+
+      - name: Environnement de build (si la file n'est pas vide)
+        if: steps.queue.outputs.count != '0'
+        run: |
+          chmod +x verify.sh
+          gh label create "revue/bloquee" --description "Revue NO-GO après 2 cycles correctifs — porte humaine" --color B60205 >/dev/null 2>&1 || true
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          uv tool install --python 3.12 aider-chat
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          git config user.name "fleet-b-aider"
+          git config user.email "actions@users.noreply.github.com"
+
+      - uses: actions/setup-node@v4
+        if: steps.queue.outputs.count != '0'
+        with:
+          node-version: 22
+
+      - uses: actions/setup-go@v5
+        if: steps.queue.outputs.count != '0'
+        with:
+          go-version: '1.23'
+
+      - name: Correcteur (une PR à la fois, isolée)
+        if: steps.queue.outputs.count != '0'
+        env:
+          # Aider exige OPENAI_API_KEY pour tout backend OpenAI-compatible —
+          # ici c'est la clé Ollama (base https://ollama.com/v1), pas une clé OpenAI.
+          OPENAI_API_KEY: ${{ secrets.OLLAMA_API_KEY }}
+        run: |
+          AIDER="aider --model openai/glm-5.3:cloud --openai-api-base https://ollama.com/v1 \
+            --weak-model openai/glm-5.3-flash:cloud --edit-format udiff \
+            --yes-always --no-auto-lint --no-check-update \
+            --no-attribute-author --no-attribute-committer \
+            --no-attribute-commit-message-author --no-attribute-commit-message-committer"
+
+          bloque_pr() {
+            {
+              echo "## Correcteur — BLOCAGE"
+              echo "2 cycles correctifs épuisés, la dernière revue du groupe C reste **NO-GO**."
+              echo "Porte humaine : merge en connaissance de cause, \`!fix\` ciblé sur l'issue, ou clôture."
+            } > "/tmp/correcteur-$1-body.md"
+            gh pr comment "$1" --body-file "/tmp/correcteur-$1-body.md"
+            gh pr edit "$1" --add-label "revue/bloquee"
+          }
+
+          commente_pr() { # <num> <fichier>
+            gh pr comment "$1" --body-file "$2"
+          }
+
+          corrige_pr() { # ACTION NUM BRANCH SLUG CYCLE — isolée : un échec ne stoppe pas la patrouille
+            local ACTION="$1" NUM="$2" BRANCH="$3" SLUG="$4" CYCLE="$5" ATTEMPT GREEN
+            echo ">>> PR #$NUM ($BRANCH) : action=$ACTION"
+            [ "$ACTION" = "bloque" ] && { bloque_pr "$NUM"; return 0; }
+            git checkout -q -B "$BRANCH" "origin/$BRANCH"
+            {
+              echo "## Revue du groupe C (verdict NO-GO) sur ta PR #$NUM"
+              echo
+              cat "/tmp/correcteur-$NUM-revue.md"
+              echo
+              echo "## Ta mission (correcteur, cycle $CYCLE/2)"
+              echo
+              echo "Corrige les problèmes \`[BLOQUANT]\` et \`[SÉRIEUX]\` de cette revue, UNIQUEMENT dans projects/$SLUG/."
+              echo "Applique le barème fleet/BAREME.md : efficacité, intelligence, idiomatisme, design, tests."
+              echo "Ne touche pas aux tests pour les faire passer — corrige les vraies causes."
+              echo "L'arbitre ./verify.sh $SLUG doit être VERT avant de terminer (sortie rapportée réellement)."
+            } > "/tmp/correcteur-$NUM-brief.md"
+            GREEN=0
+            for ATTEMPT in 1 2 3; do
+              echo "=== PR #$NUM — cycle $CYCLE, tentative $ATTEMPT/3 ==="
+              if [ "$ATTEMPT" = "1" ]; then
+                $AIDER --test-cmd "./verify.sh $SLUG" --auto-test --message-file "/tmp/correcteur-$NUM-brief.md"
+              else
+                $AIDER --test-cmd "./verify.sh $SLUG" --auto-test \
+                  --message "L'arbitre ./verify.sh $SLUG est toujours ROUGE (tentative $ATTEMPT/3). Corrige les vraies causes dans projects/$SLUG/ uniquement."
+              fi
+              if ./verify.sh "$SLUG"; then GREEN=1; break; fi
+            done
+            if [ "$GREEN" != "1" ]; then
+              git reset --hard -q "origin/$BRANCH"
+              {
+                echo "## Correcteur — échec"
+                echo "L'arbitre reste rouge après 3 tentatives : correctif NON poussé. Porte humaine."
+              } > "/tmp/correcteur-$NUM-body.md"
+              commente_pr "$NUM" "/tmp/correcteur-$NUM-body.md"
+              gh pr edit "$NUM" --add-label "revue/bloquee"
+              return 0
+            fi
+            # Garde-fou de périmètre : Aider n'a le droit de toucher QU'À projects/$SLUG/.
+            # (Le diff inclut les auto-commits d'Aider — comparé à la branche d'origine.)
+            local HORS
+            HORS=$(git diff --name-only "origin/$BRANCH"...HEAD | grep -v "^projects/$SLUG/" || true)
+            if [ -n "$HORS" ]; then
+              git reset --hard -q "origin/$BRANCH"
+              {
+                echo "## Correcteur — échec : périmètre violé"
+                echo "Fichiers modifiés hors de \`projects/$SLUG/\` — correctif NON poussé :"
+                echo '```'
+                echo "$HORS"
+                echo '```'
+              } > "/tmp/correcteur-$NUM-body.md"
+              commente_pr "$NUM" "/tmp/correcteur-$NUM-body.md"
+              gh pr edit "$NUM" --add-label "revue/bloquee"
+              return 0
+            fi
+            # Aider auto-committe : on englobe ce qu'il reste à stage, puis on pousse
+            # la branche (idempotent si tout est déjà commité par Aider).
+            git add -A
+            git commit -m "correcteur cycle $CYCLE : applique la revue — $SLUG" --allow-empty || true
+            if git diff --quiet "origin/$BRANCH" HEAD; then
+              {
+                echo "## Correcteur — cycle $CYCLE : rien à appliquer"
+                echo "La session n'a produit aucun changement net (arbitre vert, revue déjà traitée ?) — rien n'a été poussé."
+              } > "/tmp/correcteur-$NUM-body.md"
+              commente_pr "$NUM" "/tmp/correcteur-$NUM-body.md"
+              return 0
+            fi
+            git push origin "$BRANCH"
+            {
+              echo "## Correcteur — cycle $CYCLE appliqué"
+              echo "Problèmes BLOQUANT/SÉRIEUX de la revue traités, arbitre vert. Nouvelle revue du groupe C en cours sur le push."
+            } > "/tmp/correcteur-$NUM-body.md"
+            commente_pr "$NUM" "/tmp/correcteur-$NUM-body.md"
+          }
+
+          while IFS=$'\t' read -r ACTION NUM BRANCH SLUG CYCLE; do
+            corrige_pr "$ACTION" "$NUM" "$BRANCH" "$SLUG" "$CYCLE" \
+              || echo ">>> PR #$NUM : échec isolé, la patrouille continue."
+          done < /tmp/queue.tsv

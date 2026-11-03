@@ -44,8 +44,8 @@ for name in $TARGETS; do
       fail "$name (node) : script 'test' manquant"; continue; fi
     if has build; then npm run --silent build || { fail "$name : build (node)"; continue; }; fi
     # Contrat B, règle 3 : minimum 8 tests réels (comptés dans les fichiers de test).
-    TESTS=$(find "$dir" \( -name '*.test.js' -o -path '*/test/*' \) -type f -name '*.js' -print0 2>/dev/null \
-      | xargs -0 -r grep -hE '^[[:space:]]*(test|it)\(' 2>/dev/null | wc -l | tr -d ' ')
+    # find -exec (portable macOS/Linux) : pas de xargs, pas de souci d'entrée vide.
+    TESTS=$(find "$dir" \( -name '*.test.js' -o -path '*/test/*' \) -type f -name '*.js' -exec grep -hE '^[[:space:]]*(test|it)\(' {} + 2>/dev/null | wc -l | tr -d ' ')
     [ "${TESTS:-0}" -ge 8 ] || { fail "$name (node) : contrat B règle 3 — $TESTS tests trouvés, minimum 8"; continue; }
 
   elif [ -f "$dir/go.mod" ]; then

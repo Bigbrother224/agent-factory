@@ -69,6 +69,10 @@ jobs:
             echo
             cat fleet/CONTRAT-B.md
             echo
+            echo "## Barème qualité (exigé, non négociable)"
+            echo
+            cat fleet/BAREME.md
+            echo
             echo "## Spécification (issue #$ISSUE_NUMBER)"
             echo
             cat /tmp/spec.md
