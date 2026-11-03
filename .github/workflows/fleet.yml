@@ -193,6 +193,20 @@ jobs:
               break
             fi
             git add -A
+            # Garde-fou de périmètre (même règle que le correcteur) : Aider n'a le droit
+            # de toucher QU'À projects/$AXE/$SLUG/ — sinon on ne pousse pas.
+            HORS=$(git diff --name-only "origin/fleet/$SLUG"...HEAD | awk -v p="projects/$AXE/$SLUG/" 'index($0,p)!=1')
+            if [ -n "$HORS" ]; then
+              {
+                echo "## Correcteur CI — échec : périmètre violé"
+                echo "Fichiers modifiés hors de \`projects/$AXE/$SLUG/\` — correctif NON poussé :"
+                echo '```'
+                echo "$HORS"
+                echo '```'
+              } > /tmp/ci-perimetre.md
+              gh pr comment "$PR_URL" --repo "$GITHUB_REPOSITORY" --body-file /tmp/ci-perimetre.md || true
+              break
+            fi
             git commit -m "relance CI $CI_TRY/3 : correctif $SLUG" --allow-empty || true
             git push origin "fleet/$SLUG" --force
             # Laisse la CI du NOUVEAU SHA démarrer avant de relire les checks

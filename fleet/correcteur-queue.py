@@ -9,7 +9,7 @@ Pour chaque PR ouverte, décide :
               → un seul commentaire de blocage + label revue/bloquee (porte humaine).
   - (rien)  : PR saine, revue GO, revue en panne, revue en cours, déjà bloquée, ou hors périmètre.
 
-Sortie stdout : une ligne TSV par action  `action <TAB> numéro <TAB> branche <TAB> slug <TAB> cycle`.
+Sortie stdout : une ligne TSV par action  `action <TAB> numéro <TAB> branche <TAB> axe <TAB> slug <TAB> cycle`.
 Le corps de la dernière revue est sauvé dans /tmp/correcteur-<num>-revue.md (action correct)."""
 import json
 import os
