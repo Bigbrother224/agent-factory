@@ -12,6 +12,13 @@
 # l'inspecteur SNI inopérant. L'état d'apprentissage (T3) persiste via
 # le montage vers /var/lib/teleblock (surchargeable par TELEBLOCK_STATE,
 # que install.sh exporte).
+#
+# -observe-state non vide est VOLONTAIRE, c'est la spécification T3 : la
+# TV démarre en observation (~1 semaine — rien n'est bloqué pendant sa
+# période d'apprentissage, les domaines vus et leur verdict proposé sont
+# consignés), puis son profil appris s'applique automatiquement ; l'état
+# survit aux recréations de conteneur. Un drapeau vide désactiverait
+# l'apprentissage et appliquerait immédiatement les règles de marque.
 
 services:
   teleblock:

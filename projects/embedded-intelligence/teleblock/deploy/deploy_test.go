@@ -18,6 +18,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 	"testing"
@@ -179,6 +180,57 @@ func TestEntrypointAppliesRedirectRuleIdempotently(t *testing.T) {
 	if out, err := exec.Command("sh", "-n", filepath.Join(deployDir, "entrypoint.sh")).CombinedOutput(); err != nil {
 		t.Fatalf("entrypoint.sh : erreur de syntaxe POSIX : %v\n%s", err, out)
 	}
+}
+
+// Cohérence INTERNE de l'entrypoint : les trois occurrences de la règle
+// (-C test, -A ajout, -D nettoyage) doivent porter exactement la même
+// règle, sinon la règle installée n'est jamais celle retirée (fuite
+// iptables dans l'espace réseau de l'hôte). Relation vérifiée, pas
+// simple présence (revue : tests taillés sur l'implémentation).
+func TestEntrypointRedirectRuleIsCoherent(t *testing.T) {
+	e := readDeployFile(t, "entrypoint.sh")
+	re := regexp.MustCompile(`iptables -t nat (-C|-A|-D) PREROUTING -p tcp --dport 443 -j REDIRECT --to-ports (\S+)`)
+	ms := re.FindAllStringSubmatch(e, -1)
+	if len(ms) != 3 {
+		t.Fatalf("entrypoint.sh : %d règles iptables REDIRECT, attendu 3 (-C, -A, -D)", len(ms))
+	}
+	seen := map[string]string{}
+	for _, m := range ms {
+		if prev, ok := seen[m[1]]; ok && prev != m[2] {
+			t.Errorf("verbe %s dupliqué avec des cibles différentes", m[1])
+		}
+		seen[m[1]] = m[2]
+		if m[2] != `"$TLS_PORT"` {
+			t.Errorf("règle %s : cible %q, attendu \"$TLS_PORT\"", m[1], m[2])
+		}
+	}
+	for _, v := range []string{"-C", "-A", "-D"} {
+		if _, ok := seen[v]; !ok {
+			t.Errorf("entrypoint.sh : verbe %s absent — règle non idempotente ou jamais nettoyée", v)
+		}
+	}
+}
+
+// Accord entrypoint ↔ compose sur le port d'écoute TLS : la règle
+// iptables REDIRECT vise $TLS_PORT, le binaire écoute sur
+// TELEBLOCK_TLS_PORT — même variable, même défaut (8449), sinon la
+// règle renverrait les flux 443 vers un port que rien n'écoute.
+func TestComposeAndEntrypointAgreeOnTLSPort(t *testing.T) {
+	compose := readDeployFile(t, "docker-compose.yml")
+	e := readDeployFile(t, "entrypoint.sh")
+	assertDeployContains(t, "docker-compose.yml", compose, `":${TELEBLOCK_TLS_PORT:-8449}"`)
+	assertDeployContains(t, "entrypoint.sh", e, `TLS_PORT="${TELEBLOCK_TLS_PORT:-8449}"`)
+}
+
+// Accord install.sh ↔ compose sur le port DNS : install.sh écrit
+// TELEBLOCK_DNS_PORT dans deploy/.env, le compose l'interpole dans le
+// -listen du binaire — même variable des deux côtés, sinon la pile
+// écouterait sur un port différent de celui annoncé.
+func TestInstallAndComposeAgreeOnDNSPort(t *testing.T) {
+	install := readDeployFile(t, "install.sh")
+	compose := readDeployFile(t, "docker-compose.yml")
+	assertDeployContains(t, "install.sh", install, "TELEBLOCK_DNS_PORT=%s")
+	assertDeployContains(t, "docker-compose.yml", compose, `":${TELEBLOCK_DNS_PORT:-53}"`)
 }
 
 // `curl | sh` : shebang POSIX et mode strict (échouer tôt, rien à
