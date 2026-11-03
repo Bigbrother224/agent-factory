@@ -1,0 +1,32 @@
+name: revue-c
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  revue:
+    # Groupe C — réviseur lecture seule : un 2e modèle (kimi-k2.7-code) relit le diff
+    # et publie sa revue directement sur la PR. Ne décide rien : porte 2 = humain.
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Revue lecture-seule (kimi-k2.7-code via plan Ollama)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OLLAMA_KEY: ${{ secrets.OLLAMA_API_KEY }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          git diff "$BASE_SHA"...HEAD > /tmp/diff.txt
+          python3 fleet/revue.py /tmp/diff.txt > /tmp/revue.md
+          gh pr comment "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file /tmp/revue.md
+          echo ">>> Revue publiée sur la PR #$PR_NUMBER."

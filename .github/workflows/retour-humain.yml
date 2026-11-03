@@ -1,0 +1,124 @@
+name: retour-humain
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: retour-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  fix:
+    # Ta voix dans l'usine : un commentaire sur une issue qui commence par « !fix »
+    # déclenche une session Aider qui applique tes instructions sur le projet.
+    # Exemple de commentaire : « !fix ajoute un README au projet et durcis les erreurs d'entrée »
+    if: >-
+      github.event.comment.user.login == 'Bigbrother224' &&
+      startsWith(github.event.comment.body, '!fix') &&
+      github.event.issue.user.login == 'Bigbrother224'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      ISSUE_NUMBER: ${{ github.event.issue.number }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+
+      - name: Outils
+        run: |
+          chmod +x verify.sh
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          uv tool install --python 3.12 aider-chat
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          git config user.name "fleet-b-aider"
+          git config user.email "actions@users.noreply.github.com"
+
+      - name: Cible (slug + branche de base)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+        run: |
+          SLUG=$(python3 fleet/slugify.py "$ISSUE_TITLE")
+          echo "SLUG=$SLUG" >> "$GITHUB_ENV"
+          if git ls-remote --exit-code --heads origin "fleet/$SLUG" >/dev/null 2>&1; then
+            BASE="origin/fleet/$SLUG"
+          elif [ -d "projects/$SLUG" ]; then
+            BASE="origin/main"
+          else
+            gh api -X POST repos/$GITHUB_REPOSITORY/issues/comments \
+              -f issue_number=${{ github.event.issue.number }} \
+              -f body="!fix ignoré : aucun projet \`projects/$SLUG\` trouvé (ni branche fleet/$SLUG). Commente sur l'issue du projet concerné." >/dev/null
+            exit 1
+          fi
+          echo "BASE=$BASE" >> "$GITHUB_ENV"
+
+      - name: Session Aider sur tes instructions
+        env:
+          OPENAI_API_KEY: ${{ secrets.OLLAMA_API_KEY }}
+          COMMENT_BODY: ${{ github.event.comment.body }}
+        run: |
+          git checkout -B "fleet/$SLUG" "$BASE"
+          INSTRUCTIONS=$(printf '%s' "$COMMENT_BODY" | sed 's/^!fix *//')
+          AIDER="aider --model openai/glm-5.3:cloud --openai-api-base https://ollama.com/v1 \
+            --weak-model openai/glm-5.3-flash:cloud --edit-format udiff \
+            --yes-always --no-auto-lint --no-check-update \
+            --no-attribute-author --no-attribute-committer \
+            --no-attribute-commit-message-author --no-attribute-commit-message-committer"
+          GREEN=0
+          for ATTEMPT in 1 2 3; do
+            echo "=== Tentative $ATTEMPT/3 ==="
+            if [ "$ATTEMPT" = "1" ]; then
+              $AIDER --test-cmd "./verify.sh $SLUG" --auto-test \
+                --message "Retour humain sur l'issue : applique ces instructions sur projects/$SLUG/ UNIQUEMENT : $INSTRUCTIONS. Règle 4 du contrat reste non négociable : ./verify.sh $SLUG vert avant de terminer, sortie rapportée réellement."
+            else
+              $AIDER --test-cmd "./verify.sh $SLUG" --auto-test \
+                --message "L'arbitre ./verify.sh $SLUG est toujours ROUGE (tentative $ATTEMPT/3). Corrige les vraies causes, ne touche pas aux tests pour les faire passer."
+            fi
+            if ./verify.sh "$SLUG"; then GREEN=1; break; fi
+          done
+          ./verify.sh "$SLUG" > /tmp/verify-final.txt 2>&1 || true
+          echo "GREEN=$GREEN" >> "$GITHUB_ENV"
+
+      - name: Résultat (PR à jour + labels)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git add -A
+          git commit -m "retour humain (issue #$ISSUE_NUMBER) : $SLUG" --allow-empty || true
+          git push -u origin "fleet/$SLUG" --force
+          PR_URL=$(gh pr list --repo "$GITHUB_REPOSITORY" --head "fleet/$SLUG" --json url -q '.[0].url' 2>/dev/null || true)
+          if [ "$GREEN" = "1" ]; then
+            if [ -n "$PR_URL" ]; then
+              gh pr comment "$PR_URL" --repo "$GITHUB_REPOSITORY" --body "Retour humain appliqué (issue #$ISSUE_NUMBER) — arbitre vert. Revue du groupe C en cours." >/dev/null
+              echo ">>> PR mise à jour : $PR_URL"
+            else
+              gh pr create --repo "$GITHUB_REPOSITORY" --base main --head "fleet/$SLUG" \
+                --title "[$SLUG] correctifs — retour humain (issue #$ISSUE_NUMBER)" \
+                --body "Suite au retour humain sur l'issue #$ISSUE_NUMBER." >/dev/null
+              PR_URL=$(gh pr list --repo "$GITHUB_REPOSITORY" --head "fleet/$SLUG" --json url -q '.[0].url')
+              gh pr edit "$PR_URL" --add-label "verify/ok" >/dev/null 2>&1 || true
+              echo ">>> PR créée : $PR_URL"
+            fi
+            gh issue edit "$ISSUE_NUMBER" --add-label "ship/pr" >/dev/null 2>&1 || true
+          else
+            gh issue comment "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" \
+              --body "3 tentatives épuisées sur ton retour : arbitre toujours rouge ($(tail -1 /tmp/verify-final.txt | tr '\n' ' ')). Label verify/failed posé." >/dev/null
+            gh issue edit "$ISSUE_NUMBER" --add-label "verify/failed" >/dev/null 2>&1 || true
+          fi
