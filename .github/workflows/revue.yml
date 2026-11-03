@@ -13,7 +13,7 @@ jobs:
     # Groupe C — réviseur lecture seule : un 2e modèle (kimi-k2.7-code) relit le diff
     # et publie sa revue directement sur la PR. Ne décide rien : porte 2 = humain.
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
         with:
