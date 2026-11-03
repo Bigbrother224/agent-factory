@@ -86,14 +86,18 @@ jobs:
           GREEN=0
           for ATTEMPT in 1 2 3; do
             echo "=== Tentative $ATTEMPT/3 ==="
+            BEFORE=$(git rev-parse HEAD)
             if [ "$ATTEMPT" = "1" ]; then
               $AIDER --test-cmd "./verify.sh $SLUG" --auto-test \
                 --message "Retour humain sur l'issue : applique ces instructions sur projects/$SLUG/ UNIQUEMENT : $INSTRUCTIONS. Règle 4 du contrat reste non négociable : ./verify.sh $SLUG vert avant de terminer, sortie rapportée réellement."
             else
               $AIDER --test-cmd "./verify.sh $SLUG" --auto-test \
-                --message "L'arbitre ./verify.sh $SLUG est toujours ROUGE (tentative $ATTEMPT/3). Corrige les vraies causes, ne touche pas aux tests pour les faire passer."
+                --message "Tentative $ATTEMPT/3 : la session précédente n'a produit AUCUNE modification appliquée ou l'arbitre ./verify.sh $SLUG est ROUGE. Réponds OBLIGATOIREMENT avec des blocs udiff SEARCH/REPLACE complets qui s'appliquent. Instructions : $INSTRUCTIONS. Ne modifie rien en dehors de projects/$SLUG/."
             fi
-            if ./verify.sh "$SLUG"; then GREEN=1; break; fi
+            CHANGED=0
+            if [ -n "$(git log HEAD --not "$BEFORE")" ] || [ -n "$(git status --porcelain)" ]; then CHANGED=1; fi
+            if [ "$CHANGED" = "1" ] && ./verify.sh "$SLUG"; then GREEN=1; break; fi
+            if [ "$CHANGED" = "0" ]; then echo "=== Aucune modification appliquée — nouvelle tentative ==="; fi
           done
           ./verify.sh "$SLUG" > /tmp/verify-final.txt 2>&1 || true
           echo "GREEN=$GREEN" >> "$GITHUB_ENV"

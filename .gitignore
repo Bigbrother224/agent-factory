@@ -1,2 +1,4 @@
-.veille/cron.log
+.veille/
+__pycache__/
+*.pyc
 .aider*
