@@ -50,7 +50,7 @@ log "Digest : $DIGEST"
 # 2) Scout (lecture-seule) — 3 candidats DISTINCTS sourcés, chacun ancré dans un axe
 ~/bin/pi-team scout "Tu es le groupe A (Scouts) de l'usine. Lis $DIGEST (tendances réelles du jour, sourcées), ideas/README.md + ideas/TEMPLATE.md et la skill factory-ideation si tu la vois. Le but de l'usine est un PORTFOLIO GitHub articulé sur 3 axes : (1) ai-automation-and-systems — ingénierie système réelle autour des agents, orchestration, pipelines, CI ; (2) embedded-intelligence — IA dans le matériel, embarqué, edge ML ; (3) experimental-computing — informatique expérimentale poussée jusqu'à la démonstration. Propose TROIS projets DISTINCTS basés sur des tendances RÉELLES du digest — créatifs, cutting-edge, chacun résolvant un vrai problème avec un vrai besoin, shippable en MVP démontrable en moins de 3 commandes. PAS des jouets ni des réinventions. Pour chaque candidat : axe, tendance + source datée (du digest UNIQUEMENT), problème résolu, cible, différenciateur concret vs solutions existantes NOMMÉES, périmètre MVP réaliste en std lib (zéro dépendance), langage recommandé + pourquoi. Format strict : '## Candidat 1 — <titre>' puis les points. ≤90 lignes au total." "$REPO" > "$RUN/pi-team.log" 2>&1 || true
 
-CANDIDATS=$(grep -o '/tmp/pi-team-[^ ]*scout\.md' "$RUN/pi-team.log" | head -1)
+CANDIDATS=$(grep -o '/tmp/pi-team-[^ ]*scout\.md' "$RUN/pi-team.log" | head -1 || true)
 if [ -z "$CANDIDATS" ] || [ ! -s "$CANDIDATS" ]; then
   LOG_FILE="$RUN/pi-team.log"; panne "aucun rapport scout produit (auth ?)"
 fi
@@ -64,7 +64,7 @@ log "Candidats : $CANDIDATS"
 Étape 3 — choisis LE meilleur total. Un projet jouet ne doit JAMAIS gagner par défaut ; si les 3 sont faibles, dis-le et refuse.
 Étape 4 — rédige le md COMPLET du gagnant selon ideas/TEMPLATE.md, TOUTES les sections remplies, intégrant tes critiques : différenciation affinée vs concurrents nommés, périmètre MVP précis avec hors-périmètre explicite, choix du langage JUSTIFIÉ en 1 phrase, critères de succès mesurables. Première ligne = '# <titre>'. Métadonnées : Date : $DAY, Scout : pi-team scout, Sélectionneur : pi-team raisonneur, Axe : <un des 3 noms anglais>, Label : idea/draft + axe/<axe>. Termine par une section '## Pourquoi ce choix' : 2 phrases + les scores des 3 candidats. ≤80 lignes." "$REPO" > "$RUN/pi-team2.log" 2>&1 || true
 
-REPORT=$(grep -o '/tmp/pi-team-[^ ]*raisonneur\.md' "$RUN/pi-team2.log" | head -1)
+REPORT=$(grep -o '/tmp/pi-team-[^ ]*raisonneur\.md' "$RUN/pi-team2.log" | head -1 || true)
 if [ -z "$REPORT" ] || [ ! -s "$REPORT" ]; then
   LOG_FILE="$RUN/pi-team2.log"; panne "aucun rapport du sélectionneur (le tri qualité n'a pas eu lieu — aucune idée publiée sans tri)"
 fi
@@ -87,6 +87,9 @@ cp "$REPORT" "$MD" || { LOG_FILE="$REPORT"; panne "écriture du md impossible ($
 log "Idée écrite : ideas/$DAY-$SLUG.md"
 
 # 5) Issue GitHub = porte 1 humaine (gh résout le repo depuis la remote du checkout)
+# Labels défensifs : créer au besoin (échec silencieux interdit).
+(cd "$REPO" && gh label create "idea/draft" --color FBCA04 >/dev/null 2>&1 || true
+ gh label create "axe/$AXE" --color 0E8A16 >/dev/null 2>&1 || true)
 ISSUE=$(cd "$REPO" && gh issue create \
   --title "$TITLE (idea/draft)" \
   --label "idea/draft" --label "axe/$AXE" \
