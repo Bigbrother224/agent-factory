@@ -1,6 +1,12 @@
 # État — agent-factory (usine à projets, 3 groupes d'agents)
 
-Dernière mise à jour : 2026-11-03 (14:05)
+Dernière mise à jour : 2026-11-03 (13:54)
+
+## Fait — tour 13 (2026-11-03, 13:54 — scène E2E teleblock déboguée et poussée + glm-5.3 résiduel éradiqué)
+- **La scène E2E (règle 7) est VERTE et POUSSÉE** sur `chantier/teleblock` (clos le point du tour 12 « à déboguer ») : 3 bugs trouvés — (1) deadlock du test (étape 9 + cleanup consommaient 2× le canal `done` → motif canal fermé) ; (2) `-observe-state` activait par défaut le learning 168h qui suspend tout blocage → drapeau passé vide ; (3) **bug produit réel** : `ja4.Parse` rejetait tout ClientHello TLS 1.3 réel — `supported_versions` porte sa longueur sur UN octet (RFC 8446 §4.2.1), le parseur en attendait deux — corrigé + tests remis au vrai format filaire.
+- **Retours kimi PR #11 actionnables traités** : fichier vide parasite `embedded-intelligence/teleblock` à la racine supprimé (artefact du batch résident) ; tableau ROADMAP renuméroté (T4 dashboard, T5 README, T6 Docker, T7 Pi, T8 validation — conforme à l'historique réel) ; ETAT.md accidentellement embarqué dans un commit de branche (git add -A) → retiré du diff par amend. Restent au prochain cycle : IPv6 SO_ORIGINAL_DST (SÉRIEUX) et validation RedirectPort (MINEUR).
+- **Head bed93db** : arbitre vert, scène passée 3× en local (~1,1 s) ; CI + revue kimi relancées dessus (auto-merge si vert + GO).
+- **glm-5.3 résiduel (signalement humain)** : audit complet du dépôt — workflows tous en flash ✓ ; README racine corrigé (« Aider (glm-5.3) » → glm-5.3-flash, poussé ce tour) ; seules mentions restantes légitimes : `verify.sh` (la garde elle-même) et `audition/RESULTATS.md` (archive historique, note explicitement l'interdiction depuis le 2026-11-03).
 
 ## Fait — tour 12 (2026-11-03, dashboard : la revue NO-GO enfin lisible)
 Problème remonté par l'humain : impossible d'ouvrir le NO-GO de la PR #11, infos incomplètes. Cause racine × 2 :
@@ -78,7 +84,7 @@ Problème remonté par l'humain : impossible d'ouvrir le NO-GO de la PR #11, inf
 - Récupéré au passage : le travail dashboard non commité des 3 fenêtres fermées (modale revue kimi) — mergé sur main.
 
 ## Prochaine étape
-Toi : recharger http://localhost:7777, cliquer sur la ligne « Revue kimi » de la carte TeleBlock pour lire le NO-GO en entier, puis décider porte 2 (merge) ou laisser le résident (batch 6 h) corriger et re-soumettre. Toujours en attente : trancher public/privé du repo (portfolio visible des recruteurs).
+Toi : rien de manuel — le cycle est automatisé. La revue kimi sur le head bed93db arrive dans ~5 min : GO + CI verte → auto-merge de la PR #11 ; NO-GO → le résident (chantier horaire) reçoit les retours et corrige au cycle suivant (IPv6 + RedirectPort sont déjà identifiés). Tu peux suivre sur le dashboard (http://localhost:7777, carte TeleBlock). Toujours en attente : trancher public/privé du repo (portfolio visible des recruteurs).
 
 ## Règles humaines verrouillées (2026-11-03)
 - **glm-5.3:cloud (flagship) INTERDIT partout** — uniquement `glm-5.3-flash:cloud` (abonnement). Verrouillé dans verify.sh : toute PR l'introduisant est refusée par la CI.
