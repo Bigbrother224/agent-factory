@@ -116,7 +116,15 @@ jobs:
           git add -A
           git commit -m "retour humain (issue #$ISSUE_NUMBER) : $SLUG" --allow-empty || true
           git push -u origin "fleet/$SLUG" --force
-          PR_URL=$(gh pr list --repo "$GITHUB_REPOSITORY" --head "fleet/$SLUG" --json url -q '.[0].url' 2>/dev/null || true)
+          # PR ouverte si possible ; sinon on ROUVIT celle qui existe (fermée sans merge).
+          PR_URL=$(gh pr list --repo "$GITHUB_REPOSITORY" --head "fleet/$SLUG" --state open --json url -q '.[0].url' 2>/dev/null || true)
+          if [ -z "$PR_URL" ]; then
+            CLOSED_URL=$(gh pr list --repo "$GITHUB_REPOSITORY" --head "fleet/$SLUG" --state closed --json url -q '.[0].url' 2>/dev/null || true)
+            if [ -n "$CLOSED_URL" ]; then
+              gh pr reopen "$CLOSED_URL" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 || true
+              PR_URL="$CLOSED_URL"
+            fi
+          fi
           if [ "$GREEN" = "1" ]; then
             if [ -n "$PR_URL" ]; then
               gh pr comment "$PR_URL" --repo "$GITHUB_REPOSITORY" --body "Retour humain appliqué (issue #$ISSUE_NUMBER) — arbitre vert. Revue du groupe C en cours." >/dev/null
@@ -129,7 +137,7 @@ jobs:
               gh pr edit "$PR_URL" --add-label "verify/ok" >/dev/null 2>&1 || true
               echo ">>> PR créée : $PR_URL"
             fi
-            gh issue edit "$ISSUE_NUMBER" --add-label "ship/pr" >/dev/null 2>&1 || true
+            gh issue edit "$ISSUE_NUMBER" --add-label "ship/pr" --remove-label "verify/failed" >/dev/null 2>&1 || true
           else
             gh issue comment "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" \
               --body "3 tentatives épuisées sur ton retour : arbitre toujours rouge ($(tail -1 /tmp/verify-final.txt | tr '\n' ' ')). Label verify/failed posé." >/dev/null

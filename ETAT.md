@@ -20,6 +20,16 @@ Dernière mise à jour : 2026-11-02
 - **Barre portfolio** : CONTRAT-B règle 6 (README anglais : why/demo/how/tests, lisible en 2 min) ; TEMPLATE 6 sections avec Axe obligatoire ; scout-daily n'accepte un rapport QUE s'il porte un axe valide et pose le label `axe/*` sur l'issue.
 - README racine = landing portfolio (axes en tête, projet teleblock listé).
 
+## Fait — tour 8 (2026-11-03, 2e agent — réconciliation qualité sur la structure 3-axes, PR `fix/qualite-2`)
+- **Réconciliation complète** de la couche qualité avec la restructuration portfolio du live agent (aucun écrasement — ses axes, son garde anti faux-succès !fix, sa garde budgétaire CI et son dashboard sont intacts et repris tels quels).
+- **Barème qualité** (`fleet/BAREME.md`) joint au brief de la flotte B (fleet.yml) + CONTRAT-B règle 5 durcie : *vert ≠ bon*. Règle 3 (min 8 tests) **arbitrée** par verify.sh (node/go/python, comptage portable).
+- **Revue renforcée** (`fleet/revue.py`) : barème intégré à l'invite kimi, notes 0-5 par dimension, nuance pour les PRs d'infra. Prouvée en production : 3 rounds sur ma PR précédente ont attrapé 3 vrais bugs.
+- **Correcteur C3** (`correcteur.yml` + `correcteur-queue.py`, patrouille */20) adapté au format `[$AXE] $SLUG` : revue NO-GO → session Aider flash qui corrige les BLOQUANT/SÉRIEUX dans `projects/<axe>/<slug>/`, garde-fou périmètre (awk littéral), max 2 cycles → `revue/bloquee` → porte 2.
+- **Skills** (demande humaine « équipe les agents ») : 2 skills pi pour le groupe A (`.agents/skills/factory-ideation`, `factory-selection` — craft sourcé + notation 0-5 + redlines) découvertes automatiquement par les pi headless du cron ; 3 skills langage pour la flotte B (`fleet/skills/{node,go,python}.md` — idiomes, structure, pièges) **injectés dans le brief Aider selon le langage déclaré par la spec**.
+- **Pipeline idées 2 agents** : scout → 3 candidats DISTINCTS sourcés → Sélectionneur (anti-hallucination) note sur 5 axes, rédige le md du gagnant selon TEMPLATE enrichi (langage justifié, hors-périmètre, critères mesurables) ; **aucune idée publiée sans tri**, panne → issue ⚠️ sur le bus.
+- fleet.yml : garde anti double-run (ship/pr déjà posé = skip), hygiène labels (idea/draft retiré, verify/failed nettoyé au vert), relances CI auto max 3. retour-humain : réouverture de PR fermée au !fix.
+- Tout est **flash-only** (règle verrouillée) ; CI verte sur la branche.
+
 ## Prochaine étape
 Valider le premier cycle complet sous la nouvelle structure : le cron scout de demain (08:30 UTC) doit produire une idée alignée axe (sinon échec explicite) → porte 1 → flotte → porte 2. En parallèle : brancher le dashboard (3e agent pi) sur les labels (source de vérité : idea/*, axe/*, ship/pr, verify/*).
 

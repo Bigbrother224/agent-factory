@@ -45,12 +45,19 @@ for name in $TARGETS; do
     if has test; then npm run --silent test || { fail "$name : tests (node)"; continue; }; else
       fail "$name (node) : script 'test' manquant"; continue; fi
     if has build; then npm run --silent build || { fail "$name : build (node)"; continue; }; fi
+    # Contrat B, règle 3 : minimum 8 tests réels (comptés dans les fichiers de test).
+    # find -exec (portable macOS/Linux) : pas de xargs, pas de souci d'entrée vide.
+    TESTS=$(find "$dir" \( -name '*.test.js' -o -path '*/test/*' \) -type f -name '*.js' -exec grep -hE '^[[:space:]]*(test|it)\(' {} + 2>/dev/null | wc -l | tr -d ' ')
+    [ "${TESTS:-0}" -ge 8 ] || { fail "$name (node) : contrat B règle 3 — $TESTS tests trouvés, minimum 8"; continue; }
 
   elif [ -f "$dir/go.mod" ]; then
     cd "$dir"
     go vet ./...        || { fail "$name : go vet"; continue; }
     go build ./...      || { fail "$name : go build"; continue; }
     go test ./...       || { fail "$name : go test"; continue; }
+    # Contrat B, règle 3 : minimum 8 tests réels.
+    TESTS=$(grep -rE '^func Test' "$dir" --include='*_test.go' 2>/dev/null | wc -l | tr -d ' ')
+    [ "${TESTS:-0}" -ge 8 ] || { fail "$name (go) : contrat B règle 3 — $TESTS tests trouvés, minimum 8"; continue; }
 
   elif [ -f "$dir/pyproject.toml" ]; then
     cd "$dir"
@@ -58,6 +65,9 @@ for name in $TARGETS; do
     [ -x "$(command -v ruff)" ] || pip install --quiet ruff >/dev/null 2>&1 || { fail "$name : ruff indisponible"; continue; }
     ruff check .        || { fail "$name : ruff"; continue; }
     pytest -q           || { fail "$name : pytest"; continue; }
+    # Contrat B, règle 3 : minimum 8 tests réels.
+    TESTS=$(grep -rE '^[[:space:]]*def test_' "$dir" --include='*.py' --exclude-dir='.venv' --exclude-dir='__pycache__' 2>/dev/null | wc -l | tr -d ' ')
+    [ "${TESTS:-0}" -ge 8 ] || { fail "$name (python) : contrat B règle 3 — $TESTS tests trouvés, minimum 8"; continue; }
 
   else
     fail "$name : type de projet inconnu (ni package.json, ni go.mod, ni pyproject.toml)"

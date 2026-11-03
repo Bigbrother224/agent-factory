@@ -26,6 +26,15 @@ L'usine existe pour construire un **portfolio GitHub** articulé sur 3 axes :
 `idea/draft` + `axe/*` → porte 1 humaine → `idea/approved` (la flotte construit
 dans `projects/<axe>/<slug>/`) ou `idea/rejected` + raison (le scout réitère).
 
+## Le pipeline est en 2 agents
+
+Le **Scout** propose 3 candidats DISTINCTS sourcés du digest ; le **Sélectionneur**
+(pi-team raisonneur, anti-hallucination, lecture seule) vérifie que chaque source citée
+est réellement dans le digest, note chaque candidat sur 5 axes (ancrage, douleur,
+différenciation, faisabilité std-lib, valeur d'usage) et ne publie QUE le md complet du
+gagnant. **Aucune idée publiée sans tri** — un projet jouet ne gagne jamais par défaut,
+et si les 3 candidats sont faibles, rien n'est publié (et une alerte part sur le bus).
+
 ## Convention de nommage
 
 `AAAA-MM-JJ-slug-court.md` — ex. `2026-11-03-tv-privacy-gateway.md`.
