@@ -2,129 +2,247 @@
 <html lang="fr">
 <head>
 <meta charset="utf-8">
-<title>🏭 Usine à idées — portfolio & pipeline</title>
+<title>agent-factory · salle de contrôle</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <style>
-  :root {
-    --bg:#0d1117; --panel:#161b22; --border:#30363d; --fg:#c9d1d9;
-    --dim:#8b949e; --green:#3fb950; --red:#f85149; --yellow:#d29922;
-    --blue:#58a6ff; --purple:#bc8cff; --accent:#f0883e;
-  }
-  * { box-sizing:border-box; margin:0; }
-  body { background:var(--bg); color:var(--fg); font:14px/1.45 -apple-system,'Segoe UI',sans-serif; padding:18px; }
-  h1 { font-size:20px; }
-  .sub { color:var(--dim); font-size:12px; margin:2px 0 12px; }
-  .sub a { color:var(--blue); text-decoration:none; }
-  .spin { animation:pulse 1s infinite alternate; }
+/* Mode sombre verrouillé : outil de pilotage consulté d'un coup d'œil, souvent le soir.
+   Système de rayons documenté : cartes 10px, contrôles 8px, puces pleine.
+   Échelle z : toasts = 30. Rien d'autre ne superpose. */
 
-  /* pipeline strip */
-  .strip { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px; }
-  .chip { background:var(--panel); border:1px solid var(--border); border-radius:8px; padding:6px 12px; font-size:12px; display:flex; align-items:center; gap:7px; }
-  .chip b { font-size:16px; color:var(--accent); }
-  .chip.alert b { color:var(--red); } .chip.good b { color:var(--green); }
+:root {
+  --bg:#101014; --surface:#17171c; --surface-2:#1d1d23; --border:#2a2a31; --border-hov:#3d3d46;
+  --text:#ededf0; --muted:#a4a4af; --faint:#8a8a95;
+  --accent:#e8813c; --accent-hov:#f0914e; --accent-ink:#1c1206;
+  --ok:#4cba6f; --ok-dim:rgba(76,186,111,.14);
+  --bad:#e5564e; --bad-dim:rgba(229,86,78,.14);
+  --warn:#d3a52a; --warn-dim:rgba(211,165,42,.14);
+  --info:#5a9dd8; --info-dim:rgba(90,157,216,.14);
+  --accent-dim:rgba(232,129,60,.14);
+  --r-card:10px; --r-ctl:8px; --r-chip:999px;
+  --dur:180ms; --ease:cubic-bezier(.23,1,.32,1);
+  --z-toast:30;
+  --font:'Outfit',-apple-system,'Segoe UI',sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,monospace;
+}
+* { box-sizing:border-box; margin:0; }
+html { background:var(--bg); }
+body { background:var(--bg); color:var(--text); font:400 14px/1.5 var(--font); padding:0 0 48px; }
+a { color:inherit; }
 
-  /* axes */
-  .axes { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; align-items:start; }
-  @media (max-width:1100px){ .axes { grid-template-columns:1fr; } }
-  .axe { background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:12px; }
-  .axe h2 { font-size:13px; text-transform:uppercase; letter-spacing:.05em; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center; }
-  .axe h2 .count { font-weight:700; font-size:15px; }
-  .ai .count { color:#a371f7; } .emb .count { color:#3fb950; } .exp .count { color:#f85149; }
-  .axe .tag { font-size:11px; color:var(--dim); font-weight:400; text-transform:none; letter-spacing:0; }
+.ic { vertical-align:-2px; flex:none; }
 
-  /* carte projet vivante */
-  .card { background:#0d1117; border:1px solid var(--border); border-radius:8px; padding:12px; margin-bottom:12px; }
-  .card .head { display:flex; justify-content:space-between; gap:8px; align-items:flex-start; }
-  .card .title { font-weight:700; margin-bottom:2px; }
-  .card .path { color:var(--dim); font-size:11px; font-family:ui-monospace,monospace; }
-  .badges { display:flex; gap:5px; flex-wrap:wrap; margin:8px 0 6px; font-size:11px; }
-  .badge { padding:2px 8px; border-radius:6px; font-weight:700; }
-  .b-green { background:rgba(63,185,80,.15); color:var(--green); }
-  .b-red { background:rgba(248,81,73,.15); color:var(--red); }
-  .b-yellow { background:rgba(210,153,34,.15); color:var(--yellow); }
-  .b-dim { background:rgba(139,148,158,.12); color:var(--dim); }
-  .b-purple { background:rgba(188,140,255,.15); color:var(--purple); }
-  .b-blue { background:rgba(88,166,255,.15); color:var(--blue); }
+/* ---------- barre supérieure ---------- */
+.topbar { display:flex; align-items:center; justify-content:space-between; gap:16px;
+  padding:14px 20px; border-bottom:1px solid var(--border); position:sticky; top:0; background:var(--bg); }
+.brand { display:flex; align-items:baseline; gap:10px; font-weight:700; font-size:17px; letter-spacing:-.01em; }
+.brand em { font-style:normal; color:var(--accent); }
+.brand small { font-weight:500; color:var(--muted); font-size:12.5px; }
+.topmeta { display:flex; align-items:center; gap:14px; font-size:12.5px; color:var(--muted); }
+.topmeta a { color:var(--muted); text-decoration:none; border-bottom:1px solid var(--border-hov); }
+.topmeta a:hover { color:var(--text); border-color:var(--text); }
+.livedot { width:8px; height:8px; border-radius:50%; background:var(--ok); display:inline-block; margin-right:7px; animation:beat 2s var(--ease) infinite; }
+.livedot.off { background:var(--bad); animation:none; }
+@keyframes beat { 50% { opacity:.4; } }
 
-  /* timeline cycle */
-  .tl { display:flex; align-items:center; gap:2px; margin:8px 0 10px; font-size:10px; color:var(--dim); }
-  .tl .step { display:flex; flex-direction:column; align-items:center; flex:1; gap:3px; }
-  .tl .dot { width:11px; height:11px; border-radius:50%; background:var(--border); }
-  .tl .step.done .dot { background:var(--green); }
-  .tl .step.now .dot { background:var(--accent); box-shadow:0 0 8px var(--accent); }
-  .tl .step.fail .dot { background:var(--red); }
-  .tl .bar { height:2px; flex:1; background:var(--border); margin-top:-12px; }
-  .tl .bar.done { background:var(--green); }
+main, .stats-wrap, .panels-wrap { padding:0 20px; max-width:1440px; margin:0 auto; }
 
-  /* fil de communication */
-  .feed { margin:8px 0; border-left:2px solid var(--border); padding-left:10px; }
-  .msg { margin-bottom:7px; font-size:12px; }
-  .msg .meta { color:var(--dim); font-size:10px; margin-bottom:1px; }
-  .msg .who-you { color:var(--accent); font-weight:700; }
-  .msg .who-bot { color:var(--purple); font-weight:700; }
-  .msg .body { color:var(--fg); white-space:pre-wrap; word-break:break-word; max-height:120px; overflow:hidden; }
-  .msg .body.fix { color:var(--yellow); }
+/* ---------- bandeau de statistiques ---------- */
+.stats { display:flex; flex-wrap:wrap; margin:20px 0 4px; border:1px solid var(--border); border-radius:var(--r-card); background:var(--surface); overflow:hidden; }
+.stat { flex:1 1 120px; padding:12px 16px; border-right:1px solid var(--border); min-width:118px; }
+.stat:last-child { border-right:none; }
+.stat b { display:block; font:600 24px/1.1 var(--mono); letter-spacing:-.02em; }
+.stat span { display:block; color:var(--muted); font-size:12px; margin-top:2px; }
+.stat.alert b { color:var(--bad); }
+.stat.good b { color:var(--ok); }
+.stat.hot b { color:var(--accent); }
 
-  /* composeur */
-  .composer { display:flex; gap:6px; margin-top:8px; }
-  .composer input { flex:1; background:#161b22; border:1px solid var(--border); border-radius:6px; color:var(--fg); padding:6px 8px; font-size:12px; }
-  .composer input:focus { outline:1px solid var(--accent); }
-  button { border:none; border-radius:6px; padding:6px 10px; font-size:12px; font-weight:700; cursor:pointer; }
-  .btn-approve { background:#238636; color:#fff; }
-  .btn-merge { background:#8957e5; color:#fff; }
-  .btn-fix { background:#9e6a03; color:#fff; }
-  .btn-note { background:#21262d; color:var(--fg); border:1px solid var(--border); }
-  .btn-danger { background:#21262d; color:var(--red); border:1px solid var(--red); }
-  .btn-ghost { background:#21262d; color:var(--fg); border:1px solid var(--border); }
-  .btn-mini { padding:3px 8px; font-size:11px; }
-  .actions { display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; }
-  .stats { color:var(--dim); font-size:11px; margin-top:8px; }
+/* ---------- plateau 3 axes ---------- */
+.board { display:grid; grid-template-columns:repeat(auto-fit,minmax(310px,1fr)); gap:18px; margin-top:22px; align-items:start; }
+.axe-head { display:flex; align-items:center; gap:8px; padding:2px 2px 10px; }
+.axe-head .dot { width:9px; height:9px; border-radius:50%; flex:none; }
+.axe-head h2 { font-size:13.5px; font-weight:600; text-wrap:balance; }
+.axe-head .count { margin-left:auto; font:600 12px var(--mono); color:var(--muted); background:var(--surface-2); padding:2px 9px; border-radius:var(--r-chip); border:1px solid var(--border); }
 
-  .shipped { border:1px solid var(--border); border-radius:8px; padding:8px 10px; margin-bottom:8px; font-size:12px; background:#0d1117; }
-  .shipped .s-title { font-weight:600; }
-  .empty { color:var(--dim); font-size:12px; font-style:italic; padding:6px 0; }
+/* carte projet : un seul niveau d'élévation */
+.proj { background:var(--surface); border:1px solid var(--border); border-radius:var(--r-card); padding:14px 14px 12px; margin-bottom:14px; }
+@media (hover:hover) and (pointer:fine) {
+  .proj:hover { border-color:var(--border-hov); }
+}
+.proj > * + * { margin-top:0; }
+.proj-top { display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
+.proj-top h3 { font-size:15px; font-weight:600; line-height:1.25; text-wrap:balance; }
+.proj-top .state { margin-left:auto; flex:none; }
+.path { font:400 11px/1.4 var(--mono); color:var(--faint); margin-top:3px; word-break:break-all; }
+.path a { color:var(--muted); text-decoration:none; }
+.path a:hover { color:var(--text); text-decoration:underline; }
 
-  /* infra + bas de page */
-  .bottom { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:14px; }
-  @media (max-width:900px){ .bottom { grid-template-columns:1fr; } }
-  .col { background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:12px; }
-  .col h3 { font-size:13px; text-transform:uppercase; letter-spacing:.05em; color:var(--dim); margin-bottom:8px; }
-  table { width:100%; border-collapse:collapse; font-size:12px; }
-  th,td { text-align:left; padding:4px 6px; border-bottom:1px solid var(--border); vertical-align:top; }
-  th { color:var(--dim); font-weight:600; }
-  .dotc { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:6px; }
-  .d-green{background:var(--green);} .d-red{background:var(--red);} .d-dim{background:var(--border);}
-  .d-yellow{background:var(--yellow); animation:pulse 1s infinite alternate; }
-  #toast { position:fixed; bottom:18px; right:18px; padding:10px 16px; border-radius:8px; font-weight:600; display:none; z-index:10; max-width:420px; }
-  .t-ok{background:#238636;color:#fff;} .t-err{background:var(--red);color:#fff;}
-  @keyframes pulse { to { opacity:.35; } }
-  a { color:var(--blue); }
+/* puces d'état */
+.chips { display:flex; flex-wrap:wrap; gap:5px; margin-top:9px; }
+.chip { display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:600; padding:2px 9px 2px 7px; border-radius:var(--r-chip); border:1px solid var(--border); color:var(--muted); background:var(--surface-2); }
+.chip.ok   { color:var(--ok);   background:var(--ok-dim);   border-color:transparent; }
+.chip.bad  { color:var(--bad);  background:var(--bad-dim);  border-color:transparent; }
+.chip.warn { color:var(--warn); background:var(--warn-dim); border-color:transparent; }
+.chip.info { color:var(--info); background:var(--info-dim); border-color:transparent; }
+.chip.hot  { color:var(--accent); background:var(--accent-dim); border-color:transparent; }
+
+/* timeline du cycle */
+.steps { display:flex; list-style:none; padding:0; margin:12px 0 4px; }
+.steps li { flex:1; position:relative; text-align:center; font-size:10.5px; color:var(--faint); display:flex; flex-direction:column; align-items:center; gap:4px; }
+.steps li .nub { width:9px; height:9px; border-radius:50%; background:var(--border-hov); position:relative; z-index:1; }
+.steps li:not(:last-child)::after { content:''; position:absolute; top:4px; left:calc(50% + 8px); right:calc(-50% + 8px); height:2px; background:var(--border); }
+.steps li.done { color:var(--muted); }
+.steps li.done .nub { background:var(--ok); }
+.steps li.done:not(:last-child)::after { background:var(--ok); }
+.steps li.now { color:var(--accent); font-weight:600; }
+.steps li.now .nub { background:var(--accent); box-shadow:0 0 0 3px var(--accent-dim); }
+.steps li.fail { color:var(--bad); font-weight:600; }
+.steps li.fail .nub { background:var(--bad); box-shadow:0 0 0 3px var(--bad-dim); }
+
+/* fil de communication (pas de bordure latérale) */
+.feed { margin:10px 0 0; display:flex; flex-direction:column; gap:8px; }
+.msg { font-size:12.5px; }
+.msg .meta { display:flex; align-items:center; gap:6px; margin-bottom:1px; }
+.msg .who { font-size:10.5px; font-weight:700; padding:1px 8px; border-radius:var(--r-chip); }
+.msg .who.you { background:var(--accent-dim); color:var(--accent); }
+.msg .who.bot { background:var(--surface-2); border:1px solid var(--border); color:var(--info); }
+.msg time { color:var(--faint); font-size:10.5px; font-family:var(--mono); }
+.msg p { color:var(--muted); white-space:pre-wrap; word-break:break-word; max-height:110px; overflow:hidden; }
+.msg p.fixcmd { color:var(--warn); }
+
+/* composeur : label visible, pas de placeholder-étiquette */
+.composer { margin-top:11px; border-top:1px solid var(--border); padding-top:10px; }
+.composer label { display:block; font-size:11px; color:var(--muted); margin-bottom:6px; }
+.composer .row { display:flex; gap:6px; }
+.composer input { flex:1; min-width:0; background:var(--surface-2); border:1px solid var(--border); border-radius:var(--r-ctl); color:var(--text); font:400 12.5px var(--font); padding:7px 10px; transition:border-color var(--dur) var(--ease), background var(--dur) var(--ease); }
+.composer input::placeholder { color:var(--faint); }
+.composer input:hover { border-color:var(--border-hov); }
+.composer input:focus { outline:none; border-color:var(--accent); }
+.composer input:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+
+/* boutons */
+button { display:inline-flex; align-items:center; justify-content:center; gap:6px; border:none; border-radius:var(--r-ctl);
+  font:600 12.5px var(--font); padding:7px 12px; cursor:pointer; background:var(--surface-2); color:var(--text);
+  border:1px solid var(--border); transition:background var(--dur) var(--ease), border-color var(--dur) var(--ease), transform var(--dur) var(--ease); }
+button:focus { outline:none; }
+button:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+button:active { transform:scale(.97); }
+button:disabled { opacity:.4; cursor:not-allowed; transform:none; }
+@media (hover:hover) and (pointer:fine) {
+  button:hover { border-color:var(--border-hov); background:#232329; }
+  button.primary:hover { background:var(--accent-hov); border-color:var(--accent-hov); }
+  button.danger:hover { background:var(--bad-dim); border-color:var(--bad); color:var(--bad); }
+}
+button.primary { background:var(--accent); border-color:var(--accent); color:var(--accent-ink); }
+button.danger { color:var(--bad); border-color:transparent; background:var(--bad-dim); }
+button.mini { padding:5px 10px; font-size:11.5px; }
+.actions { display:flex; flex-wrap:wrap; gap:6px; margin-top:11px; }
+
+/* méta bas de carte */
+.meta { display:flex; flex-wrap:wrap; gap:4px 14px; margin-top:11px; padding-top:9px; border-top:1px solid var(--border); color:var(--faint); font-size:11px; font-family:var(--mono); }
+.meta a { color:var(--faint); text-decoration:none; }
+.meta a:hover { color:var(--text); text-decoration:underline; }
+
+/* portfolio shippé : lignes plates, pas de cartes */
+.shipped { margin-top:4px; }
+.shipped h4 { font-size:11px; font-weight:600; color:var(--faint); text-transform:uppercase; letter-spacing:.06em; padding:4px 2px 8px; }
+.ship-row { display:flex; align-items:center; gap:10px; padding:8px 2px; border-top:1px solid var(--border); font-size:12.5px; }
+.ship-row .slug { font-family:var(--mono); font-weight:600; }
+.ship-row .spacer { margin-left:auto; }
+.empty { border:1px dashed var(--border); border-radius:var(--r-card); color:var(--muted); font-size:12.5px; padding:14px 16px; line-height:1.55; }
+
+/* alerte idées sans axe */
+.noaxe { grid-column:1/-1; border:1px solid var(--bad); border-radius:var(--r-card); background:var(--bad-dim); padding:14px 16px; }
+.noaxe h3 { font-size:13.5px; margin-bottom:8px; color:var(--bad); display:flex; align-items:center; gap:7px; }
+.noaxe .proj { background:var(--surface); }
+
+/* panneaux bas de page */
+.panels { display:grid; grid-template-columns:1fr 1fr; gap:18px; margin-top:26px; }
+@media (max-width:1000px) { .panels { grid-template-columns:1fr; } }
+.panel h3, .colhead { font-size:11px; font-weight:600; color:var(--faint); text-transform:uppercase; letter-spacing:.06em; margin-bottom:8px; padding:0 2px; }
+.panel table { width:100%; border-collapse:collapse; font-size:12px; }
+.panel th { text-align:left; color:var(--faint); font-weight:600; font-size:11px; padding:4px 8px; border-bottom:1px solid var(--border-hov); }
+.panel td { padding:7px 8px; border-bottom:1px solid var(--border); color:var(--muted); vertical-align:top; }
+.panel td:first-child { color:var(--text); }
+.panel tr:last-child td { border-bottom:none; }
+@media (hover:hover) and (pointer:fine) {
+  .panel tbody tr:hover td { background:var(--surface); }
+}
+.mono { font-family:var(--mono); font-size:11.5px; }
+.pill { display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:700; padding:2px 9px; border-radius:var(--r-chip); }
+.pill.ok { background:var(--ok-dim); color:var(--ok); }
+.pill.bad { background:var(--bad-dim); color:var(--bad); }
+.pill.run { background:var(--warn-dim); color:var(--warn); }
+.pill.dim { background:var(--surface-2); color:var(--faint); border:1px solid var(--border); }
+
+/* squelettes de chargement */
+.skel { border:1px solid var(--border); border-radius:var(--r-card); background:var(--surface); padding:14px; margin-bottom:14px; }
+.skel .l { height:12px; border-radius:6px; background:var(--surface-2); margin-bottom:9px; animation:shimmer 1.2s var(--ease) infinite alternate; }
+.skel .l.short { width:55%; } .skel .l.mid { width:80%; }
+@keyframes shimmer { to { opacity:.45; } }
+
+/* toast */
+#toast { position:fixed; right:18px; bottom:18px; z-index:var(--z-toast); background:var(--surface-2); border:1px solid var(--border-hov); border-radius:var(--r-ctl); padding:11px 16px; font-size:13px; font-weight:600; display:none; max-width:420px; box-shadow:0 8px 28px rgba(0,0,0,.45); }
+#toast.ok { border-color:var(--ok); color:var(--ok); }
+#toast.err { border-color:var(--bad); color:var(--bad); }
+
+footer { padding:26px 20px 0; color:var(--faint); font-size:11.5px; text-align:center; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation:none !important; transition:none !important; }
+}
 </style>
 </head>
 <body>
-<h1>🏭 Usine à idées <span class="spin" id="live" style="color:var(--green);font-size:12px">● live</span></h1>
-<div class="sub">repo <a id="repolink" target="_blank" href="#">…</a> · GitHub = bus unique · les agents ne lisent QUE ce qui est sur GitHub — écris-leur via le composeur 💬 de chaque carte · rafraîchi 10 s</div>
 
-<div class="strip" id="strip"></div>
-<div class="axes" id="axes"></div>
+<header class="topbar">
+  <div class="brand"><em>agent</em>factory <small>usine à idées · salle de contrôle</small></div>
+  <div class="topmeta">
+    <span><span class="livedot" id="livedot"></span><span id="livetext">chargement</span></span>
+    <a id="repolink" href="#" target="_blank" rel="noopener">Bigbrother224/agent-factory</a>
+  </div>
+</header>
 
-<div class="bottom">
-  <div class="col"><h3>⚙️ Runs des agents</h3><table id="runs"><tr><td class="empty">…</td></tr></table></div>
-  <div class="col"><h3>🧪 Revues groupe C (kimi)</h3><table id="reviews"><tr><td class="empty">…</td></tr></table></div>
-</div>
+<div class="stats-wrap"><div class="stats" id="strip"></div></div>
 
-<div id="toast"></div>
+<main class="stats-wrap"><div class="board" id="board"></div></main>
+
+<div class="panels-wrap"><div class="panels" id="panels"></div></div>
+
+<footer>GitHub est le bus unique : les agents ne lisent que le repo. Le composeur publie un commentaire d'issue, « !fix » déclenche la flotte.</footer>
+
+<div id="toast" role="status" aria-live="polite"></div>
 
 <script>
 const REPO='Bigbrother224/agent-factory';
-const AXES=[
-  {key:'ai-automation-and-systems', cls:'ai', name:'AI Automation & Systems'},
-  {key:'embedded-intelligence',    cls:'emb', name:'Embedded Intelligence'},
-  {key:'experimental-computing',    cls:'exp', name:'Experimental Computing'},
-];
+const AXE_META={
+  'ai-automation-and-systems':{name:'AI Automation & Systems', color:'#a371f7'},
+  'embedded-intelligence':{name:'Embedded Intelligence', color:'#3fb950'},
+  'experimental-computing':{name:'Experimental Computing', color:'#f85149'},
+};
+
+/* Icônes : tracés Lucide (bibliothèque), inline pour tenir hors ligne */
+const I={
+  check:'<path d="M20 6 9 17l-5-5"/>',
+  x:'<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+  alert:'<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 20h16a2 2 0 0 0 1.73-2Z"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
+  msg:'<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
+  wrench:'<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>',
+  merge:'<circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M6 21V9a9 9 0 0 0 9 9"/>',
+  door:'<path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>',
+  redo:'<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>',
+  ban:'<circle cx="12" cy="12" r="10"/><path d="m4.9 4.9 14.2 14.2"/>',
+  out:'<path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>',
+  book:'<path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/>',
+  flame:'<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>',
+};
+const icon=(n,s=14)=>`<svg class="ic" width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${I[n]}</svg>`;
+
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const ago=iso=>{const m=(Date.now()-new Date(iso))/60000;
-  if(m<1)return'à l\'instant'; if(m<60)return Math.round(m)+' min';
+  if(m<1)return'à l\u2019instant'; if(m<60)return Math.round(m)+' min';
   if(m<1440)return Math.round(m/60)+' h'; return Math.round(m/1440)+' j';};
 function slugify(t){
   const s=String(t).normalize('NFKD').replace(/[\u0300-\u036f]/g,'')
@@ -132,14 +250,11 @@ function slugify(t){
   const w=s.split('-').filter(Boolean);
   return w.slice(0,3).join('-').slice(0,24).replace(/-+$/g,'')||'projet';
 }
-const who=l=>l==='Bigbrother224'?'<span class="who-you">toi</span>'
-  :/github-actions|fleet|users\.noreply/.test(l)?'<span class="who-bot">usine 🤖</span>'
-  :esc(l);
 const hasL=(o,n)=>(o.labels||[]).some(l=>l.name===n);
 const axeOf=i=>{const l=(i.labels||[]).find(l=>l.name.startsWith('axe/'));return l?l.name.slice(4):null;};
 
 function toast(m,ok){const t=document.getElementById('toast');t.textContent=m;
-  t.className=ok?'t-ok':'t-err';t.style.display='block';setTimeout(()=>t.style.display='none',4500);}
+  t.className=ok?'ok':'err';t.style.display='block';setTimeout(()=>t.style.display='none',4500);}
 
 async function act(type,target,extra,label){
   if(label&&!confirm(label+' ?'))return;
@@ -153,59 +268,50 @@ async function act(type,target,extra,label){
 function sendNote(ev,n){
   ev.preventDefault();
   const input=ev.target.querySelector('input');
-  const text=input.value.trim(); if(!text){toast('note vide',false);return;}
+  const text=input.value.trim(); if(!text){toast('Message vide.',false);return;}
   const mode=ev.submitter?ev.submitter.dataset.mode:'note';
   input.value='';
-  act('note',n,{text,mode},mode==='fix'?'🔧 Envoyer !fix à la flotte':'💬 Publier la note');
+  act('note',n,{text,mode},mode==='fix'?'Envoyer !fix à la flotte':'Publier la note');
 }
 
-/* badges d'une carte projet */
+function chip(txt,cls,ic){return `<span class="chip ${cls}">${ic?icon(ic,12):''}${txt}</span>`;}
 function badgesFor(i,pr,ci,rev,stage){
-  const b=[];
-  if(hasL(i,'idea/draft')&&!hasL(i,'idea/approved'))b.push('<span class="badge b-yellow">🧠 idée — porte 1</span>');
-  if(hasL(i,'idea/approved')&&stage!=='shipped')b.push('<span class="badge b-green">✅ approuvée</span>');
-  if(hasL(i,'idea/rejected'))b.push('<span class="badge b-red">🚫 rejetée</span>');
-  if(hasL(i,'verify/failed'))b.push('<span class="badge b-red">⚠ verify/failed</span>');
-  if(hasL(i,'ship/pr')&&stage!=='shipped')b.push('<span class="badge b-purple">🚢 ship/pr — porte 2</span>');
-  if(pr&&pr.state==='OPEN'){
-    b.push({'green':'<span class="badge b-green">CI ✔</span>','red':'<span class="badge b-red">CI ✖</span>',
-      'pending':'<span class="badge b-yellow">CI ⏳</span>','none':'<span class="badge b-dim">CI —</span>'}[ci]);
-    if(rev)b.push(rev.verdict==='GO'?'<span class="badge b-green">kimi GO</span>'
-      :'<span class="badge b-red">kimi '+esc(rev.verdict)+'</span>');
-    b.push('<span class="badge b-blue">PR #'+pr.number+'</span>');
+  const c=[];
+  if(stage==='shipped')c.push(chip('shippé en main','ok','check'));
+  else{
+    if(hasL(i,'idea/draft')&&!hasL(i,'idea/approved'))c.push(chip('porte 1 : à approuver','warn','door'));
+    if(hasL(i,'idea/approved'))c.push(chip('approuvée','ok','check'));
+    if(hasL(i,'idea/rejected'))c.push(chip('rejetée','bad','ban'));
+    if(hasL(i,'verify/failed'))c.push(chip('verify/failed','bad','alert'));
+    if(hasL(i,'ship/pr'))c.push(chip('porte 2 : à merger','hot','merge'));
+    if(pr&&pr.state==='OPEN'){
+      c.push({'green':chip('CI verte','ok','check'),'red':chip('CI rouge','bad','x'),
+        'pending':chip('CI en cours','warn','alert'),'none':chip('CI : rien','dim')}[ci]);
+      if(rev)c.push(rev.verdict==='GO'?chip('revue GO','ok','check'):chip('revue '+esc(rev.verdict),'bad','x'));
+    }
   }
-  if(stage==='shipped')b.push('<span class="badge b-green">🏆 shippé</span>');
-  return b.join('');
+  return c.join('');
 }
-
-/* timeline du cycle */
 function timeline(stage,ciOk){
-  const steps=[
-    {k:'scout',l:'Scout'},{k:'p1',l:'Porte 1'},{k:'fleet',l:'Flotte B'},
-    {k:'ci',l:'CI+revue'},{k:'p2',l:'Porte 2'}];
-  const order={idea:1,p1done:1,building:2,failed:2,ship:3,shipped:4};
-  const cur=order[stage]??0;
-  const fail=stage==='failed';
-  return '<div class="tl">'+steps.map((s,idx)=>{
-    let cls=idx<cur?'done':idx===cur?(fail&&idx===2?'fail':'now'):'';
-    if(stage==='shipped')cls='done';
-    if(stage==='ship'&&idx===4)cls='now';
-    if(idx===3&&!ciOk&&(stage==='ship'||stage==='building'))cls='';
-    return '<div class="step '+cls+'"><span class="dot"></span>'+s.l+'</div>'+
-      (idx<4?'<span class="bar '+(idx<cur?'done':'')+'"></span>':'');
-  }).join('')+'</div>';
+  const cur={idea:0,p1done:1,building:2,failed:2,ship:3,shipped:4}[stage]??0;
+  const names=['Scout','Porte 1','Flotte','CI+revue','Porte 2'];
+  return '<ol class="steps">'+names.map((n,idx)=>{
+    let s=idx<cur?'done':idx===cur?'now':'';
+    if(stage==='shipped')s='done';
+    if(stage==='ship'&&idx===4)s='now';
+    if(stage==='failed'&&idx===2)s='fail';
+    return `<li class="${s}"><span class="nub"></span>${n}</li>`;
+  }).join('')+'</ol>';
 }
-
 function projectCard(i,s){
-  const slug=slugify(i.title), axe=axeOf(i)||'—';
+  const slug=slugify(i.title), axe=axeOf(i)||'';
   const pr=s.prs.find(p=>p.headRefName==='fleet/'+slug&&p.state==='OPEN')
         || s.prs.find(p=>p.headRefName==='fleet/'+slug);
   const ci=s.ci?.[pr?.number], rev=s.reviews?.[pr?.number];
-  const merged=pr&&pr.state==='MERGED';
-  const stage=merged?'shipped'
+  const stage=pr&&pr.state==='MERGED'?'shipped'
     :hasL(i,'verify/failed')?'failed'
     :hasL(i,'ship/pr')&&pr&&pr.state==='OPEN'?'ship'
-    :hasL(i,'idea/approved')&&(pr&&pr.state==='OPEN')?'building'
+    :hasL(i,'idea/approved')&&pr&&pr.state==='OPEN'?'building'
     :hasL(i,'idea/approved')?'p1done'
     :'idea';
   const nbCom=(s.comments?.[i.number]||[]).length;
@@ -213,123 +319,143 @@ function projectCard(i,s){
 
   const feed=(s.comments?.[i.number]||[]).slice(-3).map(c=>{
     const isFix=/^!fix/.test(c.body);
-    return '<div class="msg"><div class="meta">'+who(c.author)+' · '+ago(c.at)+'</div>'+
-      '<div class="body '+(isFix?'fix':'')+'">'+esc(c.body.slice(0,220))+(c.body.length>220?'…':'')+'</div></div>';
+    return `<div class="msg"><div class="meta">`+
+      `<span class="who ${c.author==='Bigbrother224'?'you':'bot'}">${c.author==='Bigbrother224'?'toi':'usine'}</span>`+
+      `<time>${ago(c.at)}</time></div>`+
+      `<p class="${isFix?'fixcmd':''}">${esc(c.body.slice(0,220))}${c.body.length>220?'…':''}</p></div>`;
   }).join('');
 
   let actions='';
   if(i.state==='OPEN'){
     if(stage==='idea')
-      actions='<button class="btn-approve" onclick="act(\'approve_idea\','+i.number+',null,\'🚪 Porte 1 : approuver #'+i.number+'\')">🚪 Porte 1</button>'+
-        '<button class="btn-danger" onclick="const r=prompt(\'Raison du rejet de #'+i.number+' (le scout réitère) :\');if(r!==null)act(\'reject_idea\','+i.number+',r,\'Rejeter #'+i.number+'\')">Rejeter</button>';
+      actions=`<button class="primary" onclick="act('approve_idea',${i.number},null,'Approuver l\\'idée #${i.number}')">${icon('door')} Approuver l'idée</button>`+
+        `<button class="danger" onclick="const r=prompt('Raison du rejet de #${i.number} : le scout réitère.');if(r!==null)act('reject_idea',${i.number},r,'Rejeter #${i.number}')">${icon('ban')} Rejeter</button>`;
     else if(stage==='ship'||stage==='building')
-      actions='<button class="btn-merge" '+(ci==='green'?'':'disabled')+
-        ' onclick="act(\'merge_pr\','+(pr?pr.number:0)+',null,\'🚪 Porte 2 : merger PR #'+(pr?pr.number:'?')+'\')">🚪 Porte 2 — merger</button>';
+      actions=`<button class="primary" ${ci==='green'?'':'disabled'} onclick="act('merge_pr',${pr?pr.number:0},null,'Merger la PR #${pr?pr.number:'?'}')">${icon('merge')} Merger la PR</button>`;
     if(hasL(i,'verify/failed'))
-      actions+='<button class="btn-ghost" onclick="act(\'retry_fleet\','+i.number+',null,\'🔄 Relancer la flotte sur #'+i.number+'\')">🔄 Relancer la flotte</button>';
-    actions+='<button class="btn-danger btn-mini" onclick="act(\'close_issue\','+i.number+',null,\'Fermer #'+i.number+'\')">fermer</button>';
+      actions+=`<button onclick="act('retry_fleet',${i.number},null,'Relancer la flotte sur #${i.number}')">${icon('redo')} Relancer la flotte</button>`;
+    actions+=`<button class="mini" onclick="act('close_issue',${i.number},null,'Fermer #${i.number}')">Fermer</button>`;
   }
 
-  return '<div class="card">'+
-    '<div class="head"><div><div class="title">'+esc(i.title)+'</div>'+
-    '<div class="path">projects/'+esc(axe)+'/'+esc(slug)+'/ · #'+i.number+' · '+ago(i.updatedAt)+'</div></div></div>'+
-    '<div class="badges">'+badgesFor(i,pr,ci,rev,stage)+'</div>'+
-    timeline(stage,ci==='green')+
-    (feed?'<div class="feed">'+feed+'</div>':'')+
-    (i.state==='OPEN'?
-      '<form class="composer" onsubmit="sendNote(event,'+i.number+')">'+
-      '<input placeholder="Écrire à l\'usine sur ce projet…" maxlength="400">'+
-      '<button class="btn-fix" data-mode="fix" title="!fix → la flotte applique (workflow retour-humain)">🔧 !fix</button>'+
-      '<button class="btn-note" data-mode="note" title="Note simple — visible de tous, contexte pour l\'humain">💬</button>'+
-      '</form>':'')+
-    (actions?'<div class="actions">'+actions+'</div>':'')+
-    '<div class="stats">💬 '+nbCom+' messages · ⚙️ '+nbRuns+' runs'+
-    (pr?' · <a target="_blank" href="https://github.com/'+REPO+'/pull/'+pr.number+'">PR #'+pr.number+' ↗</a>':'')+
-    ' · <a target="_blank" href="https://github.com/'+REPO+'/issues/'+i.number+'">issue ↗</a></div>'+
-    '</div>';
-}
+  const composer=i.state==='OPEN'?`
+    <form class="composer" onsubmit="sendNote(event,${i.number})">
+      <label for="note-${i.number}">Écrire à l'usine sur ce projet</label>
+      <div class="row">
+        <input id="note-${i.number}" maxlength="400" placeholder="Remarque, contexte, instruction…">
+        <button class="primary mini" data-mode="fix" title="Publie un commentaire « !fix » : la flotte applique">${icon('wrench',12)} !fix</button>
+        <button class="mini" data-mode="note" title="Commentaire simple, lisible par tous">${icon('msg',12)} Publier</button>
+      </div>
+    </form>`:'';
 
-function shippedBlock(list){
-  if(!list||!list.length)return'';
-  return list.map(p=>'<div class="shipped">🏆 <span class="s-title">'+esc(p.slug)+'</span> '+
-    (p.readme?'<span class="badge b-green" style="font-size:10px">README ✓</span>':'<span class="badge b-yellow" style="font-size:10px">README manquant</span>')+
-    ' <a target="_blank" href="https://github.com/'+REPO+'/tree/main/projects/'+esc(p.axe)+'/'+esc(p.slug)+'">↗</a></div>').join('');
-}
+  const metaBits=[
+    `<span title="messages">${icon('msg',12)} ${nbCom}</span>`,
+    `<span title="runs liés">${icon('flame',12)} ${nbRuns}</span>`,
+    pr?`<a href="https://github.com/${REPO}/pull/${pr.number}" target="_blank" rel="noopener">PR #${pr.number}</a>`:'',
+    `<a href="https://github.com/${REPO}/issues/${i.number}" target="_blank" rel="noopener">issue #${i.number}</a>`,
+  ];
 
+  return `<article class="proj">
+    <div class="proj-top"><h3>${esc(i.title)}</h3></div>
+    <div class="path">projects/${esc(axe)}/${esc(slug)}/ · maj ${ago(i.updatedAt)}</div>
+    <div class="chips">${badgesFor(i,pr,ci,rev,stage)}</div>
+    ${timeline(stage,ci==='green')}
+    ${feed?`<div class="feed">${feed}</div>`:''}
+    ${composer}
+    ${actions?`<div class="actions">${actions}</div>`:''}
+    <div class="meta">${metaBits.join('')}</div>
+  </article>`;
+}
+function axeColumn(key,s,projects){
+  const m=AXE_META[key];
+  const cards=projects.map(i=>projectCard(i,s)).join('');
+  const shipped=(s.portfolio?.[key]||[]);
+  const shipHtml=shipped.length?`<div class="shipped"><h4>Portfolio sur main</h4>`+
+    shipped.map(p=>`<div class="ship-row">`+
+      `<span class="slug">${esc(p.slug)}</span>`+
+      (p.readme?chip('README','ok','book'):chip('README manquant','warn','book'))+
+      `<a class="spacer" href="https://github.com/${REPO}/tree/main/projects/${key}/${esc(p.slug)}" target="_blank" rel="noopener">${icon('out',12)}</a>`+
+      `</div>`).join('')+`</div>`:'';
+  const empt=`<div class="empty">Aucun projet actif sur cet axe. Le scout cherche ici chaque matin (08:30 UTC) : approuve une idée pour lancer un cycle, et la flotte construira dans projects/${key}/.</div>`;
+  return `<section>
+    <div class="axe-head"><span class="dot" style="background:${m.color}"></span><h2>${m.name}</h2>
+      <span class="count">${projects.filter(i=>i.state==='OPEN').length} actifs</span></div>
+    ${cards||empt}${shipHtml}
+  </section>`;
+}
 function render(s){
+  const ld=document.getElementById('livedot');
   document.getElementById('repolink').textContent=s.repo;
   document.getElementById('repolink').href='https://github.com/'+s.repo;
-  document.getElementById('live').title='maj '+s.when;
+  ld.classList.remove('off');
+  document.getElementById('livetext').textContent='live, maj '+new Date(s.when).toLocaleTimeString('fr-FR');
 
   const issues=(s.issues||[]).filter(i=>i.labels&&i.labels.length&&!(i.labels||[]).some(l=>l.name==='documentation'));
   const prs=s.prs||[];
 
-  /* strip pipeline */
-  const st={
-    idea:issues.filter(i=>i.state==='OPEN'&&hasL(i,'idea/draft')&&!hasL(i,'idea/approved')&&!hasL(i,'idea/rejected')).length,
-    build:issues.filter(i=>i.state==='OPEN'&&hasL(i,'idea/approved')&&!hasL(i,'ship/pr')&&!hasL(i,'verify/failed')).length,
-    ship:issues.filter(i=>i.state==='OPEN'&&hasL(i,'ship/pr')).length,
-    failed:issues.filter(i=>i.state==='OPEN'&&hasL(i,'verify/failed')).length,
-    done:prs.filter(p=>p.state==='MERGED').length,
-  };
+  const n1=issues.filter(i=>i.state==='OPEN'&&hasL(i,'idea/draft')&&!hasL(i,'idea/approved')&&!hasL(i,'idea/rejected')).length;
+  const nB=issues.filter(i=>i.state==='OPEN'&&hasL(i,'idea/approved')&&!hasL(i,'ship/pr')&&!hasL(i,'verify/failed')).length;
+  const n2=issues.filter(i=>i.state==='OPEN'&&hasL(i,'ship/pr')).length;
+  const nF=issues.filter(i=>i.state==='OPEN'&&hasL(i,'verify/failed')).length;
+  const nD=prs.filter(p=>p.state==='MERGED').length;
   document.getElementById('strip').innerHTML=
-    '<div class="chip"><b>'+st.idea+'</b>🧠 porte 1</div>'+
-    '<div class="chip"><b>'+st.build+'</b>🔨 en chantier</div>'+
-    '<div class="chip good"><b>'+st.ship+'</b>🚢 porte 2</div>'+
-    '<div class="chip alert"><b>'+st.failed+'</b>⚠ à réparer</div>'+
-    '<div class="chip good"><b>'+st.done+'</b>🏆 shippés</div>'+
-    '<div class="chip">🗓 digest veille : <b>'+(s.lastDigest||'—')+'</b></div>'+
-    (s.errors&&s.errors.length?'<div class="chip alert">⚠ '+esc(s.errors[0].slice(0,60))+'</div>':'');
+    `<div class="stat hot"><b>${n1}</b><span>porte 1 · idées</span></div>`+
+    `<div class="stat"><b>${nB}</b><span>en chantier</span></div>`+
+    `<div class="stat good"><b>${n2}</b><span>porte 2 · à merger</span></div>`+
+    `<div class="stat alert"><b>${nF}</b><span>verify/failed</span></div>`+
+    `<div class="stat good"><b>${nD}</b><span>shippés</span></div>`+
+    `<div class="stat"><b style="font-size:16px;padding-top:5px">${esc(s.lastDigest||'aucun')}</b><span>digest de veille</span></div>`;
 
-  /* 3 colonnes d'axes */
-  document.getElementById('axes').innerHTML=AXES.map(a=>{
-    const inAxe=issues.filter(i=>axeOf(i)===a.key);
-    const cards=inAxe.map(i=>projectCard(i,s)).join('');
-    const shipped=(s.portfolio?.[a.key]||[]).map(p=>({...p,axe:a.key}));
-    return '<div class="axe '+a.cls+'"><h2>'+a.name+
-      '<span class="count">'+inAxe.filter(i=>i.state==='OPEN').length+'</span></h2>'+
-      (cards||'<div class="empty">aucun projet actif sur cet axe</div>')+
-      (shipped.length?'<h3 style="margin-top:10px;font-size:11px;color:var(--dim);text-transform:uppercase">Portfolio main</h3>'+shippedBlock(shipped):'')+
-      '</div>';
-  }).join('');
+  const byAxe={}; Object.keys(AXE_META).forEach(k=>byAxe[k]=[]);
+  issues.forEach(i=>{const a=axeOf(i);if(a&&byAxe[a])byAxe[a].push(i);});
+  document.getElementById('board').innerHTML=
+    Object.keys(AXE_META).map(k=>axeColumn(k,s,byAxe[k])).join('');
 
-  /* issues sans axe → avertissement */
   const noAxe=issues.filter(i=>i.state==='OPEN'&&hasL(i,'idea/draft')&&!axeOf(i));
-  if(noAxe.length)document.getElementById('axes').insertAdjacentHTML('beforeend',
-    '<div class="axe" style="grid-column:1/-1;border-color:var(--red)"><h2 style="color:var(--red)">⚠ Idées sans axe (la flotte refusera)</h2>'+
-    noAxe.map(i=>'<div class="card"><div class="title">'+esc(i.title)+'</div>'+
-    '<div class="actions"><button class="btn-approve" onclick="const a=prompt(\'Quel axe ? (ai-automation-and-systems / embedded-intelligence / experimental-computing)\');if(a)act(\'set_axe\','+i.number+',a,\'Poser l\\\'axe sur #'+i.number+'\')">Poser l\'axe</button>'+
-    '<button class="btn-danger" onclick="act(\'close_issue\','+i.number+',null,\'Fermer #'+i.number+'\')">fermer</button></div></div>').join('')+
-    '</div>');
+  if(noAxe.length)document.getElementById('board').insertAdjacentHTML('beforeend',
+    `<div class="noaxe"><h3>${icon('alert')} Idées sans axe : la flotte refusera</h3>`+
+    noAxe.map(i=>`<div class="proj"><h3 style="font-size:14px">${esc(i.title)}</h3>
+      <div class="actions" style="margin-top:8px">
+        <button class="primary mini" onclick="const a=prompt('Quel axe ? (ai-automation-and-systems, embedded-intelligence, experimental-computing)');if(a)act('set_axe',${i.number},a,'Poser l\\'axe sur #${i.number}')">${icon('door',12)} Poser l'axe</button>
+        <button class="danger mini" onclick="act('close_issue',${i.number},null,'Fermer #${i.number}')">Fermer</button>
+      </div></div>`).join('')+`</div>`);
 
-  /* runs */
   const runs=s.runs||[];
-  document.getElementById('runs').innerHTML='<tr><th>Workflow</th><th>Déclencheur</th><th>Quand</th><th>Statut</th></tr>'+
-    (runs.length?runs.map(r=>{
-      const key=r.status==='completed'?r.conclusion:r.status;
-      const m={success:['d-green','✔'],failure:['d-red','✖'],cancelled:['d-dim','∅'],
-        in_progress:['d-yellow','⏳'],queued:['d-yellow','⏳']}[key]||['d-dim','?'];
-      return '<tr><td>'+esc(r.workflowName)+'</td><td>'+esc((r.displayTitle||r.headBranch||'').slice(0,44))+
-        '</td><td>'+ago(r.createdAt)+'</td><td><span class="dotc '+m[0]+'"></span>'+m[1]+
-        (r.status!=='completed'?' <button class="btn-ghost btn-mini" onclick="act(\'rerun\','+r.databaseId+',null,\'Relancer run '+r.databaseId+'\')">↻</button>':'')+
-        '</td></tr>';}).join(''):'<tr><td class="empty">aucun run</td></tr>');
-
-  /* revues kimi */
+  const runsHtml=runs.length?runs.map(r=>{
+    const key=r.status==='completed'?r.conclusion:r.status;
+    const p={success:'ok',failure:'bad',cancelled:'dim',in_progress:'run',queued:'run'}[key]||'dim';
+    const lab={success:'succès',failure:'échec',cancelled:'annulé',in_progress:'en cours',queued:'en file'}[key]||key;
+    return `<tr><td>${esc(r.workflowName)}</td><td class="mono">${esc((r.displayTitle||r.headBranch||'').slice(0,40))}</td>`+
+      `<td class="mono">${ago(r.createdAt)}</td><td><span class="pill ${p}">${lab}</span>`+
+      (r.status!=='completed'?` <button class="mini" onclick="act('rerun',${r.databaseId},null,'Relancer le run ${r.databaseId}')">${icon('redo',11)}</button>`:'')+
+      `</td></tr>`;}).join('')
+    :'<tr><td class="mono">Aucun run récent.</td></tr>';
   const rv=Object.entries(s.reviews||{});
-  document.getElementById('reviews').innerHTML='<tr><th>PR</th><th>Verdict</th><th>Extrait</th></tr>'+
-    (rv.length?rv.map(([n,r])=>'<tr><td>#'+n+'</td><td>'+(r.verdict==='GO'
-      ?'<span class="badge b-green">GO</span>':'<span class="badge b-red">'+esc(r.verdict)+'</span>')+
-      '</td><td>'+esc(r.excerpt.slice(0,110))+'…</td></tr>').join('')
-      :'<tr><td class="empty">aucune revue en attente</td></tr>');
+  const revHtml=rv.length?rv.map(([n,r])=>`<tr><td>PR #${n}</td>`+
+    `<td><span class="pill ${r.verdict==='GO'?'ok':'bad'}">${esc(r.verdict)}</span></td>`+
+    `<td>${esc(r.excerpt.slice(0,100))}…</td></tr>`).join('')
+    :'<tr><td class="mono">Aucune revue en attente.</td></tr>';
+  document.getElementById('panels').innerHTML=
+    `<div class="panel"><h3>Runs des agents</h3><table><thead><tr><th>Workflow</th><th>Déclencheur</th><th>Âge</th><th>Statut</th></tr></thead><tbody>${runsHtml}</tbody></table></div>`+
+    `<div class="panel"><h3>Revues du groupe C</h3><table><thead><tr><th>PR</th><th>Verdict</th><th>Extrait</th></tr></thead><tbody>${revHtml}</tbody></table></div>`;
 }
-
+function skeletons(){
+  document.getElementById('board').innerHTML=[0,1,2].map(()=>`<section>`+
+    `<div class="axe-head"><span class="dot" style="background:var(--border-hov)"></span><h2>…</h2></div>`+
+    `<div class="skel"><div class="l mid"></div><div class="l"></div><div class="l short"></div></div>`+
+    `<div class="skel"><div class="l mid"></div><div class="l"></div><div class="l short"></div></div></section>`).join('');
+}
 async function refresh(){
   try{
     const r=await fetch('/api/state');render(await r.json());
-    document.getElementById('live').textContent='● live';
-  }catch(e){document.getElementById('live').textContent='⚠ hors ligne';}
+  }catch(e){
+    const ld=document.getElementById('livedot');
+    ld.classList.add('off');
+    document.getElementById('livetext').textContent='hors ligne';
+  }
 }
-refresh();setInterval(refresh,10000);
+skeletons();
+refresh();
+setInterval(refresh,10000);
 </script>
 </body>
 </html>

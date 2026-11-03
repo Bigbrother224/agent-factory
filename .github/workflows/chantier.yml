@@ -83,6 +83,7 @@ jobs:
             echo "aucun dossier projet — merger d'abord le MVP"; exit 0
           fi
           echo "PROJDIR=$PROJDIR" >> "$GITHUB_ENV"
+          echo "AXE=$AXE" >> "$GITHUB_ENV"
           echo "PROJ=projects/$AXE/$PROJDIR" >> "$GITHUB_ENV"
           echo "BR=chantier/$PROJDIR" >> "$GITHUB_ENV"
           if git ls-remote --exit-code --heads origin "chantier/$PROJDIR" >/dev/null 2>&1; then
@@ -146,7 +147,14 @@ jobs:
             --no-attribute-author --no-attribute-committer \
             --no-attribute-commit-message-author --no-attribute-commit-message-committer \
             --test-cmd "./verify.sh $AXE/$PROJDIR" --auto-test \
-            --message "${FEEDBACK}Tu es le CODEUR du chantier. Dans $PROJ/ : implémente la tranche «${TRANCHE#*] }». Lis $PROJ/ROADMAP.md pour le contexte global. Contraintes : ne modifie rien en dehors de $PROJ/, ./verify.sh $AXE/$PROJDIR doit finir VERT (exécute-le), puis coche la tranche [x] dans $PROJ/ROADMAP.md."
+            --message "${FEEDBACK}Tu es le CODEUR du chantier. Implémente MAINTENANT la tranche «${TRANCHE#*] }» dans $PROJ/ en produisant des blocs udiff SEARCH/REPLACE complets dans cette réponse — pas de plan, pas d'attente : l'arbitre ./verify.sh est exécuté automatiquement après tes éditions, tu n'as rien à me demander. Lis d'abord $PROJ/ROADMAP.md pour le contexte. Contraintes : ne modifie rien en dehors de $PROJ/ ; une fois les éditions faites, coche la tranche [x] dans $PROJ/ROADMAP.md (édite-le aussi)."
+          BEFORE=$(git rev-parse HEAD)
+          CHANGED=0
+          if [ -n "$(git log HEAD --not "$BEFORE")" ] || [ -n "$(git status --porcelain)" ]; then CHANGED=1; fi
+          if [ "$CHANGED" != "1" ]; then
+            echo ">>> session sans aucune édition appliquée — échec, retentée au prochain cycle."
+            exit 1
+          fi
           ./verify.sh "$AXE/$PROJDIR"
 
       - name: PR (création ou mise à jour)
