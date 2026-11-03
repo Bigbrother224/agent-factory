@@ -46,7 +46,7 @@ func main() {
 	upstream := flag.String("upstream", "1.1.1.1:53", "upstream DNS server for allowed names")
 	var devices deviceFlags
 	flag.Var(&devices, "device", "TV to protect, as IP=brand (samsung, lg, sony, tcl, generic); repeatable")
-	tlsListen := flag.String("tls-listen", ":443", "local port where redirected HTTPS (443) traffic arrives for passive SNI inspection; empty disables")
+	tlsListen := flag.String("tls-listen", ":8449", "local port where redirected HTTPS (443) traffic arrives for passive SNI inspection; must match the iptables REDIRECT 443->8449 installed by deploy/entrypoint.sh (TELEBLOCK_TLS_PORT); empty disables")
 	observeState := flag.String("observe-state", "observe.json", "local JSON file holding the per-device learning state; empty disables learning mode")
 	webListen := flag.String("web-listen", ":8080", "local dashboard (TV panel) on this address; empty disables")
 	flag.Parse()
