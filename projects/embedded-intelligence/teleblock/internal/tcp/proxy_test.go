@@ -1,6 +1,7 @@
 package tcp
 
 import (
+	"bytes"
 	"io"
 	"net"
 	"sync"
@@ -157,6 +158,33 @@ func TestObservedSNIIsRelayed(t *testing.T) {
 	got := make([]byte, len(payload))
 	if _, err := io.ReadFull(conn, got); err != nil {
 		t.Fatalf("read echo: %v", err)
+	}
+}
+
+func TestOversizedRecordIsRelayedUninspected(t *testing.T) {
+	// A handshake record whose declared length exceeds the RFC 5246
+	// maximum (16 KiB) is invalid: the inspector must not allocate
+	// on it and must relay the flow byte for byte, uninspected —
+	// even when the SNI inside would be blocked.
+	ins := startInspector(t, samsungRouter(t), startEcho(t))
+	conn, err := net.Dial("tcp", ins)
+	if err != nil {
+		t.Fatalf("dial: %v", err)
+	}
+	defer conn.Close()
+	conn.SetDeadline(time.Now().Add(5 * time.Second))
+
+	payload := append([]byte{testContentTypeHandshake, 0x03, 0x01, 0xFF, 0xFF},
+		bytes.Repeat([]byte("A"), 64)...)
+	if _, err := conn.Write(payload); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	got := make([]byte, len(payload))
+	if _, err := io.ReadFull(conn, got); err != nil {
+		t.Fatalf("read echo: %v", err)
+	}
+	if !bytes.Equal(got, payload) {
+		t.Errorf("oversized record relay modified: got %d bytes", len(got))
 	}
 }
 

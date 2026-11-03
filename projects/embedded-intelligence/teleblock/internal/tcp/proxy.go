@@ -16,6 +16,7 @@ import (
 	"log"
 	"net"
 
+	"teleblock/internal/ja4"
 	"teleblock/internal/profile"
 	"teleblock/internal/rules"
 	"teleblock/internal/sni"
@@ -26,6 +27,10 @@ const (
 	tlsRecordHeaderLen   = 5  // content type, version, length
 	contentTypeHandshake = 22 // 0x16
 )
+
+// tlsMaxRecordLen is the maximum TLSPlaintext record length the RFC
+// 5246 allows (16 KiB); anything larger is not a record we inspect.
+const tlsMaxRecordLen = 16384
 
 // TargetFunc returns the real destination address of a redirected
 // connection. The default implementation, OriginalDst, recovers it
@@ -85,16 +90,36 @@ func (l *Listener) handle(conn net.Conn) {
 
 	// Only a handshake record carries a ClientHello we can read in
 	// the clear; anything else is relayed untouched — no decryption.
-	var sniName string
+	// The record length is capped at the RFC maximum: a larger value
+	// is invalid, and allocating on it would let a client pin memory,
+	// so the flow is relayed uninspected without allocation.
+	var sniName, fp string
 	prefix := header
 	if header[0] == contentTypeHandshake {
-		body := make([]byte, int(header[3])<<8|int(header[4]))
-		if _, err := io.ReadFull(conn, body); err != nil {
-			return
-		}
-		prefix = append(header, body...)
-		if name, err := sni.Parse(prefix); err == nil {
-			sniName = name
+		length := int(header[3])<<8 | int(header[4])
+		if length > tlsMaxRecordLen {
+			log.Printf("tcp: record length %d exceeds %d, relaying uninspected", length, tlsMaxRecordLen)
+		} else {
+			body := make([]byte, length)
+			if _, err := io.ReadFull(conn, body); err != nil {
+				return
+			}
+			prefix = append(header, body...)
+			if name, err := sni.Parse(prefix); err == nil {
+				sniName = name
+			}
+			display := sniName
+			if display == "" {
+				display = "-"
+			}
+			// JA4 fingerprint of the same ClientHello: classification
+			// key for unknown flows, exposed to the Observe verdict.
+			if hello, err := ja4.Parse(prefix); err == nil {
+				fp = hello.String()
+			}
+			if fp != "" {
+				log.Printf("tcp: ja4 %s sni=%s src=%s", fp, display, conn.RemoteAddr())
+			}
 		}
 	}
 
@@ -133,10 +158,14 @@ func (l *Listener) relay(conn net.Conn, prefix []byte) {
 		return
 	}
 	go func() {
-		io.Copy(dst, conn)
+		if _, err := io.Copy(dst, conn); err != nil {
+			log.Printf("tcp: relay src→dst: %v", err)
+		}
 		dst.Close()
 	}()
-	io.Copy(conn, dst)
+	if _, err := io.Copy(conn, dst); err != nil {
+		log.Printf("tcp: relay dst→src: %v", err)
+	}
 }
 
 // reset aborts the source connection with a targeted TCP RST: closing

@@ -47,7 +47,7 @@ func OriginalDst(conn net.Conn) (string, error) {
 	if serr != nil {
 		return "", serr
 	}
-	if family := binary.LittleEndian.Uint16(addr[0:2]); family != syscall.AF_INET {
+	if family := binary.NativeEndian.Uint16(addr[0:2]); family != syscall.AF_INET {
 		return "", errors.New("tcp: SO_ORIGINAL_DST: not an IPv4 socket")
 	}
 	dst := &net.TCPAddr{

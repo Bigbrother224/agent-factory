@@ -25,6 +25,8 @@ func TestRedirectPortRejectsForeignRules(t *testing.T) {
 		"",
 		"echo hello",
 		"iptables -t filter -A INPUT -p tcp --dport 443 -j DROP",
+		"iptables -t nat -A PREROUTING -p udp --dport 443 -j MARK --to-ports 8843",
+		"iptables -t mangle -A OUTPUT -p tcp --dport 443 -j MARK --to-ports 8843",
 		"iptables -t nat -A PREROUTING -p tcp --dport 80 -j REDIRECT --to-ports 8843",
 		"iptables -t nat -A PREROUTING -p tcp --dport 443 -j REDIRECT --to-ports 0",
 		"iptables -t nat -A PREROUTING -p tcp --dport 443 -j REDIRECT --to-ports 70000",

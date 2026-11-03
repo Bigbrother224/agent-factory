@@ -35,11 +35,32 @@ func RedirectPort(rule string) (int, error) {
 	if got != "[-t -A -p --dport -j --to-ports]" {
 		return 0, fmt.Errorf("tcp: not a TeleBlock REDIRECT rule: %q", rule)
 	}
-	i := index(fields, "--dport")
-	if i < 0 || fields[i+1] != strconv.Itoa(RedirectIPPort) {
+	// The flag values are as fixed as the flags: only the nat table,
+	// the PREROUTING chain, TCP and the REDIRECT target define a
+	// TeleBlock rule (a rule like `-t mangle -A OUTPUT -p udp -j MARK`
+	// must be rejected even though it carries the same flags).
+	for _, v := range [4]struct{ flag, want string }{
+		{"-t", "nat"},
+		{"-A", "PREROUTING"},
+		{"-p", "tcp"},
+		{"-j", "REDIRECT"},
+	} {
+		i := index(fields, v.flag)
+		if i < 0 || i+1 >= len(fields) || fields[i+1] != v.want {
+			return 0, fmt.Errorf("tcp: not a TeleBlock REDIRECT rule: %q", rule)
+		}
+	}
+	dport := index(fields, "--dport")
+	if dport < 0 || dport+1 >= len(fields) {
+		return 0, fmt.Errorf("tcp: not a TeleBlock REDIRECT rule: %q", rule)
+	}
+	if fields[dport+1] != strconv.Itoa(RedirectIPPort) {
 		return 0, fmt.Errorf("tcp: rule must redirect --dport %d: %q", RedirectIPPort, rule)
 	}
-	i = index(fields, "--to-ports")
+	i := index(fields, "--to-ports")
+	if i < 0 || i+1 >= len(fields) {
+		return 0, fmt.Errorf("tcp: not a TeleBlock REDIRECT rule: %q", rule)
+	}
 	port, err := strconv.Atoi(fields[i+1])
 	if err != nil || port < 1 || port > 65535 {
 		return 0, fmt.Errorf("tcp: invalid --to-ports in %q", rule)
