@@ -193,6 +193,9 @@ jobs:
             git add -A
             git commit -m "relance CI $CI_TRY/3 : correctif $SLUG" --allow-empty || true
             git push origin "fleet/$SLUG" --force
+            # Laisse la CI du NOUVEAU SHA démarrer avant de relire les checks
+            # (sinon --watch peut surveiller les checks de l'ancien push).
+            sleep 20
           done
 
           if [ "$CI_GREEN" = "1" ]; then
