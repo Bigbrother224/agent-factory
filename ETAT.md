@@ -46,6 +46,12 @@ Dernière mise à jour : 2026-11-03
 - **Quota (décision à trancher)** : repo privé = 2000 min Actions/mois ≈ 2-4 cycles/jour → cron réglé sur 2 h. Repo **public** = minutes standard illimitées + branch protection gratuite + portfolio visible des recruteurs.
 - **Option serveur dédié (si besoin persistant) : Oracle Cloud Always Free** — 4 cœurs ARM Ampere + 24 Go RAM, gratuit à vie, carte demandée à l'inscription sans débit. Pour un daemon 24/7 ou un self-hosted runner.
 
+## Fait — tour 9 (2026-11-03, 2e agent — l'usine équipe ses agents, PR `fix/skills` atelier)
+- Skills externes curés depuis GitHub : `frontend-design` d'**anthropics/skills** (Apache 2.0, étalon anti-vibecoding) + TDD/systematic-debugging/verification-before-completion d'**obra/superpowers** (MIT). Canoniques dans `.agents/skills/`, condensés flash-friendly dans `fleet/skills/` pour les briefs Aider.
+- Injection dans le chantier résident : session code en `--message-file` avec discipline non négociable + étalon design si face visible ; planificateur prévoit une tranche design pour les projets UI.
+- Dashboard : refonte de l'agent résident gardée ; bugfix porté (PRs `chantier/` invisibles sur les fiches).
+- **Règle de gouvernance (humain, ce tour)** : GitHub = la PRODUCTION uniquement (idées des 3 axes, projets, notifications). Le développement de l'usine elle-même = **atelier** (label `atelier`), géré hors production : PRs atelier auto-mergées (CI verte + GO), dashboard les sépare.
+
 ## Prochaine étape
 Toi : recharger http://localhost:7777 (design refondu), puis trancher la PR #10 (couche qualité, kimi NO-GO : lire la revue sur la carte ou `gh pr view 10 -R Bigbrother224/agent-factory`), et demain valider le premier cycle scout complet sous les 3 axes.
 

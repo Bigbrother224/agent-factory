@@ -305,8 +305,9 @@ function timeline(stage,ciOk){
 }
 function projectCard(i,s){
   const slug=slugify(i.title), axe=axeOf(i)||'';
-  const pr=s.prs.find(p=>p.headRefName==='fleet/'+slug&&p.state==='OPEN')
-        || s.prs.find(p=>p.headRefName==='fleet/'+slug);
+  const pr=s.prs.find(p=>(p.headRefName==='fleet/'+slug||p.headRefName==='chantier/'+slug)&&p.state==='OPEN')
+        || s.prs.find(p=>p.headRefName==='fleet/'+slug)
+        || s.prs.find(p=>p.headRefName==='chantier/'+slug);
   const ci=s.ci?.[pr?.number], rev=s.reviews?.[pr?.number];
   const stage=pr&&pr.state==='MERGED'?'shipped'
     :hasL(i,'verify/failed')?'failed'
@@ -315,7 +316,7 @@ function projectCard(i,s){
     :hasL(i,'idea/approved')?'p1done'
     :'idea';
   const nbCom=(s.comments?.[i.number]||[]).length;
-  const nbRuns=(s.runs||[]).filter(r=>r.headBranch==='fleet/'+slug||r.displayTitle===i.title).length;
+  const nbRuns=(s.runs||[]).filter(r=>r.headBranch==='fleet/'+slug||r.headBranch==='chantier/'+slug||r.displayTitle===i.title).length;
 
   const feed=(s.comments?.[i.number]||[]).slice(-3).map(c=>{
     const isFix=/^!fix/.test(c.body);
