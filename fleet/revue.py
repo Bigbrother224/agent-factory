@@ -119,12 +119,25 @@ def call(prompt: str) -> str:
         return (json.load(r)["choices"][0]["message"]["content"] or "").strip()
 
 
-def review_pass(files):
+def review_pass(files, all_files):
     """Relit une passe ; réponse vide → UNE relance sur une tranche plus
     courte (cause la plus fréquente : budget mangé par le raisonnement)."""
     names = ", ".join(n for n, _ in files)
+    all_names = " ; ".join(n for n, _ in all_files)
+    # Manifeste complet en fin de prompt : le réviseur doit JUGER uniquement
+    # les fichiers de la passe, mais ne peut plus prétexter l'absence d'un
+    # fichier qu'il voit nommé — cause récurrente et fausse de NO-GO
+    # (« observe_test.go livré sans aucun test » alors qu'il est vert et
+    # couvert dans une autre passe).
+    footer = (
+        "\n[mémento : cette passe ne contient QUE les fichiers de son en-tête ; "
+        "le diff complet comporte exactement ces fichiers : " + all_names + ". "
+        "Ne JAMAIS signer comme problème l'absence d'un fichier nommé ici, "
+        "ni l'absence de tests d'un fichier dont le *_test.go est dans le diff ; "
+        "un fichier hors passe est signalé au plus “non évalué dans cette passe”.]\n"
+    )
     body = "".join(p for _, p in files)
-    prompt = PROMPT_HEAD + body + "\n```"
+    prompt = PROMPT_HEAD + footer + body + "\n```"
     try:
         out = call(prompt)
     except Exception as e:  # noqa: BLE001
@@ -155,9 +168,10 @@ def verdict_of(md: str) -> str:
 
 def main() -> str:
     diff = open(sys.argv[1], encoding="utf-8").read()
-    passes = pack_passes(split_file_parts(diff))
+    parts = split_file_parts(diff)
+    passes = pack_passes(parts)
     if len(passes) == 1 and len(passes[0]) <= CAP:  # cas simple : une passe, sortie directe
-        out, panne = review_pass(passes[0])
+        out, panne = review_pass(passes[0], parts)
         if panne:
             return f"## Revue du groupe C\n\n### Verdict\n**NO-GO**\n\n### Problèmes (du plus grave au moins grave)\n- [BLOQUANT] {panne} — Verdict par défaut à trancher par l'humain."
         if not out:
@@ -168,7 +182,7 @@ def main() -> str:
     # le verdict final est le plus sévère.
     reviewed = []
     for i, files in enumerate(passes, 1):
-        out, panne = review_pass(files)
+        out, panne = review_pass(files, parts)
         label = f"passe {i}/{len(passes)} — {', '.join(n for n, _ in files)}"
         reviewed.append((label, out, panne))
 
