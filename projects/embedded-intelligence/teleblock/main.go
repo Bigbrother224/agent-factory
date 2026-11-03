@@ -9,11 +9,13 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"strconv"
 	"strings"
 
 	"teleblock/internal/dns"
 	"teleblock/internal/profile"
 	"teleblock/internal/rules"
+	"teleblock/internal/tcp"
 )
 
 // device is a TV declared on the command line.
@@ -41,6 +43,7 @@ func main() {
 	upstream := flag.String("upstream", "1.1.1.1:53", "upstream DNS server for allowed names")
 	var devices deviceFlags
 	flag.Var(&devices, "device", "TV to protect, as IP=brand (samsung, lg, sony, tcl, generic); repeatable")
+	tlsListen := flag.String("tls-listen", ":443", "local port where redirected HTTPS (443) traffic arrives for passive SNI inspection; empty disables")
 	flag.Parse()
 
 	router := profile.New(rules.DefaultSets())
@@ -49,6 +52,26 @@ func main() {
 			log.Fatalf("device %s: %v", d.ip, err)
 		}
 		log.Printf("device %s: %s profile", d.ip, d.brand)
+	}
+
+	if *tlsListen != "" {
+		listenPort := tcp.RedirectIPPort
+		if _, portStr, err := net.SplitHostPort(*tlsListen); err == nil {
+			if p, err := strconv.Atoi(portStr); err == nil {
+				listenPort = p
+			}
+		}
+		ln, err := net.Listen("tcp", *tlsListen)
+		if err != nil {
+			log.Fatalf("tls-listen %s: %v", *tlsListen, err)
+		}
+		inspector := tcp.New(router, nil)
+		log.Printf("teleblock: TLS SNI inspection on %s (%s)", ln.Addr(), tcp.RedirectRule(listenPort))
+		go func() {
+			if err := inspector.Serve(ln); err != nil {
+				log.Printf("teleblock: tcp inspection stopped: %v", err)
+			}
+		}()
 	}
 
 	server := dns.New(router, dns.Upstream(*upstream))
