@@ -12,6 +12,13 @@
 //   - install.sh : POSIX strict pipable, détection Pi-hole, import de
 //     la gravity dans l'état VU par le conteneur, repli de port validé ;
 //   - .dockerignore : le contexte de build n'embarque ni .git ni état.
+//
+// Note sur la méthode : ces artefacts sont de la CONFIGURATION livrée
+// (compose, Dockerfile, scripts POSIX) — pour eux, une sous-chaîne
+// précise EST le contrat (le compose doit monter /var/lib/teleblock,
+// l'entrypoint doit trapper EXIT…) ; les relations entre fichiers
+// (ports, variables, règles) et les exécutions réelles (sh -n, compose
+// config, motifs testés comportementalement) font le reste.
 package deploy
 
 import (

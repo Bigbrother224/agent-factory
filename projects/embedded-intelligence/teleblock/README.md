@@ -65,11 +65,11 @@ and the counter talks like a person, not a firewall.
 
 2. **Docker Compose.** For homes that already run Pi-hole: multi-arch image,
    state on a volume, and a one-line importer that takes over from an existing
-   install. Ships with the next release.
+   install — `deploy/install.sh` in this repo, on the host that runs Docker.
 
 3. **A flashable Raspberry Pi image.** Preconfigured card via Raspberry Pi
    Imager; the Pi boots straight into gateway duty and the dashboard answers on
-   first boot. Ships with the next release.
+   first boot. Roadmap item T7 — not shipped yet.
 
 ## What the tests pin down
 
