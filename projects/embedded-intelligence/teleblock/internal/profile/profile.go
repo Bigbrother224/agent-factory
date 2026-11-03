@@ -78,10 +78,15 @@ func (r *Router) Assign(ip net.IP, brand string) error {
 	}
 	// Persistance HORS r.mu : learn.Register a son propre verrou et fait de
 	// l'I/O disque ; garder r.mu pendant ce temps sérialise le chemin chaud
-	// Verdict (revue). La map n'est mutée qu'après un Register réussi —
-	// l'atomicité persistée <=> assignation est conservée.
-	if r.learn != nil {
-		if err := r.learn.Register(ip, brand); err != nil {
+	// Verdict (revue). Le pointeur learn est capturé SOUS le verrou (il est
+	// écrit par EnableLearning sous le même verrou — revue : data race) ;
+	// la map n'est mutée qu'après un Register réussi — l'atomicité
+	// persistée <=> assignation est conservée.
+	r.mu.Lock()
+	learn := r.learn
+	r.mu.Unlock()
+	if learn != nil {
+		if err := learn.Register(ip, brand); err != nil {
 			return fmt.Errorf("device %s: %w", ip, err)
 		}
 	}
@@ -111,6 +116,12 @@ func (r *Router) State(ip net.IP) DeviceState {
 	r.mu.RLock()
 	learn := r.learn
 	r.mu.RUnlock()
+	return r.state(learn, ip)
+}
+
+// state classifies a device from an already-captured learn pointeur, sans
+// re-toucher au routeur : utilisable depuis une seule section critique.
+func (r *Router) state(learn *observe.Store, ip net.IP) DeviceState {
 	if learn == nil || ip == nil || !learn.Known(ip) {
 		return DeviceUnknown
 	}
@@ -128,26 +139,25 @@ func (r *Router) State(ip net.IP) DeviceState {
 // learning — unknown to the store, or with learning disabled — are
 // governed directly by their brand rules.
 func (r *Router) Verdict(ip net.IP, domain string) rules.Verdict {
+	// UNE seule section critique : learn + marque + set + état capturés
+	// sous le même RLock — pas de verdict mélangé entre deux états du
+	// routeur en cas de réassignation concurrente (revue SÉRIEUX).
 	r.mu.RLock()
 	learn := r.learn
-	// Marque et set capturés SOUS le RLock : le chemin chaud n'accède plus à
-	// r.devices/r.sets hors verrou (revue : lecture concurrente d'Assign).
 	brand := r.brand(ip)
 	set := r.set(brand)
+	state := r.state(learn, ip)
 	r.mu.RUnlock()
-	if learn == nil {
+	if learn == nil || state == DeviceUnknown {
 		return set.Verdict(domain)
 	}
-	switch r.State(ip) {
-	case DeviceUnknown:
-		return set.Verdict(domain)
-	case DeviceLearning:
+	if state == DeviceLearning {
 		r.record(learn, ip, brand, set, domain)
 		return rules.Observe
-	default: // DeviceReady
-		r.record(learn, ip, brand, set, domain)
-		return rules.Verdict(learn.Decide(ip, domain))
 	}
+	// DeviceReady
+	r.record(learn, ip, brand, set, domain)
+	return rules.Verdict(learn.Decide(ip, domain))
 }
 
 // record feeds the observed domain to the learning store, with the verdict

@@ -68,6 +68,7 @@ type Baseline func(brand, domain string) Verdict
 // JSON file on the local filesystem.
 type Store struct {
 	mu       sync.Mutex
+	ioMu     sync.Mutex // sérialise l'écriture durable : l'ordre des instantanés
 	path     string
 	period   time.Duration
 	now      func() time.Time
@@ -202,14 +203,10 @@ func (s *Store) Learn(ip net.IP, brand, domain string, proposed Verdict) error {
 		s.mu.Unlock()
 		return nil
 	}
-	// Sérialisation sous le verrou (rapide), écriture disque HORS verrou : garder
-	// s.mu pendant l'I/O sérialise tous les apprenants (revue).
-	state, encErr := json.MarshalIndent(s.devices, "", "  ")
+	// Écriture disque HORS verrou : garder s.mu pendant l'I/O sérialise tous
+	// les apprenants (revue). L'ordre des instantanés est garanti par writeState.
 	s.mu.Unlock()
-	if encErr != nil {
-		return fmt.Errorf("observe: encode state: %w", encErr)
-	}
-	return s.writeState(state)
+	return s.writeState()
 }
 
 // Register declares a device and starts its learning period: a newly seen
@@ -234,14 +231,10 @@ func (s *Store) Register(ip net.IP, brand string) error {
 	} else {
 		d.Brand = brand
 	}
-	// Sérialisation sous le verrou (rapide), écriture disque HORS verrou : garder
-	// s.mu pendant l'I/O sérialise tous les apprenants (revue).
-	state, encErr := json.MarshalIndent(s.devices, "", "  ")
+	// Écriture disque HORS verrou : garder s.mu pendant l'I/O sérialise tous
+	// les apprenants (revue). L'ordre des instantanés est garanti par writeState.
 	s.mu.Unlock()
-	if encErr != nil {
-		return fmt.Errorf("observe: encode state: %w", encErr)
-	}
-	return s.writeState(state)
+	return s.writeState()
 }
 
 // Known reports whether the device has ever been declared to the store.
@@ -350,11 +343,19 @@ func (s *Store) Decide(ip net.IP, domain string) Verdict {
 	return Allow
 }
 
-// writeState écrit un instantané déjà sérialisé hors s.mu, de façon atomique :
-// il est écrit à côté de sa cible puis renommé en place, pour qu'un crash ne
-// laisse jamais un état à moitié écrit derrière lui. Toujours appelé HORS
-// verrou : la sérialisation se fait sous le verrou de l'appelant, l'I/O ici.
-func (s *Store) writeState(buf []byte) error {
+// writeState sérialise l'état courant puis l'écrit atomiquement, HORS s.mu :
+// un crash ne laisse jamais un état à moitié écrit, ET l'ordre des instantanés
+// écrits suit l'ordre des appels (ioMu sérialise les écrivains — revue : un
+// snapshot ancien ne peut plus écraser un plus récent).
+func (s *Store) writeState() error {
+	s.ioMu.Lock()
+	defer s.ioMu.Unlock()
+	s.mu.Lock()
+	buf, err := json.MarshalIndent(s.devices, "", "  ")
+	s.mu.Unlock()
+	if err != nil {
+		return fmt.Errorf("observe: encode state: %w", err)
+	}
 	dir := filepath.Dir(s.path)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return fmt.Errorf("observe: create %s: %w", dir, err)

@@ -15,6 +15,7 @@ import (
 	"io"
 	"log"
 	"net"
+	"sync"
 
 	"teleblock/internal/ja4"
 	"teleblock/internal/profile"
@@ -77,15 +78,17 @@ func (l *Listener) Serve(ln net.Listener) error {
 }
 
 // handle inspects one connection: read the first TLS record, classify
-// its SNI, then relay or reset.
+// its SNI, then relay or reset. Single-close owner: each conn is closed
+// EXACTLY once — explicit close on early return, reset(), or relay() ;
+// no defer, to avoid any double close (review) with the exit path of the
+// two relay goroutines.
 func (l *Listener) handle(conn net.Conn) {
-	defer conn.Close()
-
 	src := remoteIP(conn)
 
 	header := make([]byte, tlsRecordHeaderLen)
 	if _, err := io.ReadFull(conn, header); err != nil {
-		return // no data: let the connection close quietly
+		conn.Close() // no data: quiet close
+		return
 	}
 
 	// Only a handshake record carries a ClientHello we can read in
@@ -102,6 +105,7 @@ func (l *Listener) handle(conn net.Conn) {
 		} else {
 			body := make([]byte, length)
 			if _, err := io.ReadFull(conn, body); err != nil {
+				conn.Close()
 				return
 			}
 			prefix = append(header, body...)
@@ -139,33 +143,44 @@ func (l *Listener) handle(conn net.Conn) {
 
 // relay pipes the connection, with the already-read prefix, to its
 // real destination. The inspection is strictly passive: bytes flow
-// unmodified in both directions.
+// unmodified in both directions. The two directions are joined by a
+// WaitGroup and EACH end is closed exactly once by its owner — dst by
+// relay when the reverse direction is finished, conn by the goroutine —
+// the end of one direction releases the other. No concurrent close, no
+// resource leak (review).
 func (l *Listener) relay(conn net.Conn, prefix []byte) {
 	addr, err := l.target(conn)
 	if err != nil {
 		log.Printf("tcp: original destination: %v", err)
+		conn.Close()
 		return
 	}
 	dst, err := net.Dial("tcp", addr)
 	if err != nil {
 		log.Printf("tcp: relay to %s: %v", addr, err)
+		conn.Close()
 		return
 	}
-	defer dst.Close()
-
 	if _, err := dst.Write(prefix); err != nil {
 		log.Printf("tcp: relay to %s: %v", addr, err)
+		dst.Close()
+		conn.Close()
 		return
 	}
+	var wg sync.WaitGroup
+	wg.Add(1)
 	go func() {
+		defer wg.Done()
 		if _, err := io.Copy(dst, conn); err != nil {
 			log.Printf("tcp: relay src→dst: %v", err)
 		}
-		dst.Close()
+		conn.Close() // src side is finished: releases the reverse copy
 	}()
 	if _, err := io.Copy(conn, dst); err != nil {
 		log.Printf("tcp: relay dst→src: %v", err)
 	}
+	dst.Close() // dst side is finished: releases the forward copy
+	wg.Wait()
 }
 
 // reset aborts the source connection with a targeted TCP RST: closing
