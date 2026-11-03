@@ -41,20 +41,31 @@ jobs:
           git config user.email "actions@users.noreply.github.com"
           aider --version
 
-      - name: Brief (contrat B + spec de l'issue)
+      - name: Brief (contrat B + axe + spec de l'issue)
         env:
           GH_TOKEN: ${{ github.token }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
           ISSUE_TITLE: ${{ github.event.issue.title }}
         run: |
-          gh issue view "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --json body -q .body > /tmp/spec.md
+          gh issue view "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --json body,labels > /tmp/issue.json
+          AXE=$(python3 -c "import json;d=json.load(open('/tmp/issue.json'));print(next((l['name'].removeprefix('axe/') for l in d['labels'] if l['name'].startswith('axe/')),''))")
+          if [ -z "$AXE" ]; then
+            gh issue comment "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" \
+              --body "Blocage : l'issue n'a pas de label d'axe (axe/ai-automation-and-systems, axe/embedded-intelligence ou axe/experimental-computing). Ajoute l'axe puis relance en retirant/reposant idea/approved."
+            gh issue edit "$ISSUE_NUMBER" --remove-label "idea/approved"
+            exit 1
+          fi
           SLUG=$(python3 fleet/slugify.py "$ISSUE_TITLE")
+          python3 -c "import json;print(json.load(open('/tmp/issue.json'))['body'])" > /tmp/spec.md
           echo "SLUG=$SLUG" >> "$GITHUB_ENV"
+          echo "AXE=$AXE" >> "$GITHUB_ENV"
           echo "ISSUE_NUMBER=$ISSUE_NUMBER" >> "$GITHUB_ENV"
           {
             echo "# Tâche — flotte B"
             echo
-            echo "Projet à créer : **projects/$SLUG/**"
+            echo "Axe du portfolio : **$AXE** — le projet vit dans projects/$AXE/$SLUG/."
+            echo
+            echo "Projet à créer : **projects/$AXE/$SLUG/**"
             echo
             cat fleet/CONTRAT-B.md
             echo
@@ -76,14 +87,14 @@ jobs:
           for ATTEMPT in 1 2 3; do
             echo "=== Tentative $ATTEMPT/3 ==="
             if [ "$ATTEMPT" = "1" ]; then
-              $AIDER --test-cmd "./verify.sh $SLUG" --auto-test --message-file /tmp/brief.md
+              $AIDER --test-cmd "./verify.sh $AXE/$SLUG" --auto-test --message-file /tmp/brief.md
             else
-              $AIDER --test-cmd "./verify.sh $SLUG" --auto-test \
-                --message "L'arbitre ./verify.sh $SLUG est ROUGE (tentative $ATTEMPT/3). Diagnostique avec le runner de tests du projet, corrige les vraies causes (ne bidouille pas les tests), jusqu'au vert complet de ./verify.sh $SLUG. Ne modifie rien en dehors de projects/$SLUG/."
+              $AIDER --test-cmd "./verify.sh $AXE/$SLUG" --auto-test \
+                --message "L'arbitre ./verify.sh $AXE/$SLUG est ROUGE (tentative $ATTEMPT/3). Diagnostique avec le runner de tests du projet, corrige les vraies causes (ne bidouille pas les tests), jusqu'au vert complet de ./verify.sh $AXE/$SLUG. Ne modifie rien en dehors de projects/$AXE/$SLUG/."
             fi
-            if ./verify.sh "$SLUG"; then GREEN=1; break; fi
+            if ./verify.sh "$AXE/$SLUG"; then GREEN=1; break; fi
           done
-          ./verify.sh "$SLUG" > /tmp/verify-final.txt 2>&1 || true
+          ./verify.sh "$AXE/$SLUG" > /tmp/verify-final.txt 2>&1 || true
           echo "GREEN=$GREEN" >> "$GITHUB_ENV"
 
       - name: PR (si vert) ou verdict verify/failed (si rouge après 3)
@@ -104,7 +115,7 @@ jobs:
               echo '```'
             } > /tmp/pr-body.md
             gh pr create --repo "$GITHUB_REPOSITORY" --base main --head "fleet/$SLUG" \
-              --title "[$SLUG] MVP — flotte B (Aider)" --body-file /tmp/pr-body.md
+              --title "[$AXE] $SLUG — MVP (flotte B)" --body-file /tmp/pr-body.md
             PR_URL=$(gh pr list --repo "$GITHUB_REPOSITORY" --head "fleet/$SLUG" --json url -q '.[0].url')
             echo "--- Attente de la CI (groupe C) sur $PR_URL ---"
             gh pr checks "$PR_URL" --watch > /dev/null 2>&1 || true

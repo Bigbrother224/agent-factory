@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>🏭 Usine à idées — agent-factory</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root {
+    --bg: #0d1117; --panel: #161b22; --border: #30363d; --fg: #c9d1d9;
+    --dim: #8b949e; --green: #3fb950; --red: #f85149; --yellow: #d29922;
+    --blue: #58a6ff; --purple: #bc8cff; --accent: #f0883e;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body { background: var(--bg); color: var(--fg); font: 14px/1.45 -apple-system, 'Segoe UI', sans-serif; padding: 18px; }
+  h1 { font-size: 20px; margin-bottom: 4px; }
+  .sub { color: var(--dim); font-size: 12px; margin-bottom: 14px; }
+  .sub a { color: var(--blue); text-decoration: none; }
+  .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; align-items: start; }
+  @media (max-width: 1100px) { .grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 700px)  { .grid { grid-template-columns: 1fr; } }
+  .col { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 12px; }
+  .col h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .05em; color: var(--dim); margin-bottom: 10px; display: flex; justify-content: space-between; }
+  .col h2 .count { color: var(--accent); font-weight: 700; }
+  .card { border: 1px solid var(--border); border-radius: 8px; padding: 10px; margin-bottom: 10px; background: #0d1117; }
+  .card .title { font-weight: 600; margin-bottom: 6px; }
+  .card .num { color: var(--dim); font-size: 12px; }
+  .labels { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0; }
+  .label { font-size: 11px; padding: 1px 8px; border-radius: 10px; border: 1px solid var(--border); color: var(--dim); }
+  .label.idea\/approved { color: var(--green); border-color: var(--green); }
+  .label.verify\/ok { color: var(--green); border-color: var(--green); }
+  .label.ship\/pr { color: var(--purple); border-color: var(--purple); }
+  .label.idea\/draft { color: var(--yellow); border-color: var(--yellow); }
+  .label.fix\/c-verificateur { color: var(--red); border-color: var(--red); }
+  .badges { display: flex; gap: 6px; flex-wrap: wrap; margin: 6px 0; font-size: 11px; }
+  .badge { padding: 2px 8px; border-radius: 6px; font-weight: 700; }
+  .b-green { background: rgba(63,185,80,.15); color: var(--green); }
+  .b-red { background: rgba(248,81,73,.15); color: var(--red); }
+  .b-yellow { background: rgba(210,153,34,.15); color: var(--yellow); }
+  .b-dim { background: rgba(139,148,158,.12); color: var(--dim); }
+  .b-purple { background: rgba(188,140,255,.15); color: var(--purple); }
+  button { border: none; border-radius: 6px; padding: 6px 10px; font-size: 12px; font-weight: 600; cursor: pointer; margin-right: 6px; margin-top: 6px; }
+  .btn-approve { background: #238636; color: #fff; }
+  .btn-merge { background: #8957e5; color: #fff; }
+  .btn-danger { background: #21262d; color: var(--red); border: 1px solid var(--red); }
+  .btn-ghost { background: #21262d; color: var(--fg); border: 1px solid var(--border); }
+  button:disabled { opacity: .4; cursor: not-allowed; }
+  .bottom { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 14px; }
+  @media (max-width: 900px) { .bottom { grid-template-columns: 1fr; } }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th, td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--border); }
+  th { color: var(--dim); font-weight: 600; }
+  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+  .d-green { background: var(--green); } .d-red { background: var(--red); }
+  .d-yellow { background: var(--yellow); animation: pulse 1s infinite alternate; }
+  .d-dim { background: var(--border); }
+  @keyframes pulse { to { opacity: .35; } }
+  #toast { position: fixed; bottom: 18px; right: 18px; padding: 10px 16px; border-radius: 8px; font-weight: 600; display: none; z-index: 10; }
+  .t-ok { background: #238636; color: #fff; } .t-err { background: var(--red); color: #fff; }
+  .empty { color: var(--dim); font-size: 12px; font-style: italic; padding: 8px 0; }
+  .refresh { color: var(--dim); font-size: 12px; }
+  .spin { display: inline-block; animation: pulse .6s infinite alternate; }
+</style>
+</head>
+<body>
+<h1>🏭 Usine à idées <span class="refresh" id="when"></span></h1>
+<div class="sub">repo <a id="repolink" href="#" target="_blank">…</a> · GitHub = bus unique · rafraîchissement auto 10 s · <span class="spin" id="live">● live</span></div>
+
+<div class="grid" id="cols"></div>
+
+<div class="bottom">
+  <div class="col">
+    <h2>⚙️ Runs des agents (workflows)</h2>
+    <table id="runs"><tr><td class="empty">chargement…</td></tr></table>
+  </div>
+  <div class="col">
+    <h2>🧪 Revues groupe C (kimi) &amp; audits 2ᵉ agent</h2>
+    <table id="reviews"><tr><td class="empty">chargement…</td></tr></table>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+function toast(msg, ok) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = ok ? 't-ok' : 't-err';
+  t.style.display = 'block';
+  setTimeout(() => t.style.display = 'none', 4000);
+}
+
+async function act(type, target, extra, label) {
+  if (!confirm(label + ' ?')) return;
+  try {
+    const r = await fetch('/api/action', {
+      method: 'POST', headers: {'content-type': 'application/json'},
+      body: JSON.stringify({ type, target, extra })
+    });
+    const j = await r.json();
+    toast(j.ok ? '✔ ' + label : '✖ ' + (j.error || 'échec'), j.ok);
+    if (j.ok) refresh();
+  } catch (e) { toast('✖ ' + e.message, false); }
+}
+
+function cardInner(num, title, body) {
+  return `<div class="card"><div class="title">${esc(title)}</div>${body}
+    <a href="https://github.com/Bigbrother224/agent-factory/issues/${num}" target="_blank" class="num">#${num} ↗</a></div>`;
+}
+
+function issueCard(i, mode) {
+  const labels = (i.labels||[]).map(l => `<span class="label ${esc(l.name)}">${esc(l.name)}</span>`).join('');
+  let actions = '';
+  if (mode === 'door1') {
+    actions = `<button class="btn-approve" onclick="act('approve_idea',${i.number},null,'🚪 Porte 1 : approuver l\\'idée #${i.number}')">🚪 Porte 1 — approuver</button>
+      <button class="btn-danger" onclick="act('reject_idea',${i.number},null,'Retirer draft #${i.number}')">Retirer draft</button>
+      <button class="btn-danger" onclick="act('close_issue',${i.number},null,'Fermer #${i.number}')">Fermer</button>`;
+  } else if (mode === 'approved') {
+    actions = `<button class="btn-danger" onclick="act('close_issue',${i.number},null,'Fermer #${i.number}')">Fermer</button>`;
+  }
+  return cardInner(i.number, i.title, `<div class="labels">${labels}</div>${actions}`);
+}
+
+function prCard(p, ci, review) {
+  const labels = (p.labels||[]).map(l => `<span class="label ${esc(l.name)}">${esc(l.name)}</span>`).join('');
+  const ciBadge = { green:'<span class="badge b-green">CI ✔</span>', red:'<span class="badge b-red">CI ✖</span>',
+    pending:'<span class="badge b-yellow">CI ⏳</span>', none:'<span class="badge b-dim">CI —</span>' }[ci||'none'];
+  let revBadge = '';
+  if (review) {
+    revBadge = review.verdict === 'GO'
+      ? '<span class="badge b-green">kimi GO</span>'
+      : '<span class="badge b-red">kimi ' + esc(review.verdict) + '</span>';
+  }
+  const ready = ci === 'green';
+  const fleet = (p.headRefName||'').startsWith('fleet/');
+  const actions = `
+    <button class="btn-merge" ${ready?'':'disabled'} onclick="act('merge_pr',${p.number},null,'🚪 Porte 2 : merger PR #${p.number}')">🚪 Porte 2 — merger</button>
+    <button class="btn-danger" onclick="act('close_pr',${p.number},null,'Fermer PR #${p.number}')">Fermer</button>
+    <button class="btn-ghost" onclick="const c=prompt('Commentaire à publier sur PR #${p.number} (ex: !fix …)');if(c)act('comment_pr',${p.number},c,'Commenter PR #${p.number}')">💬 Commenter</button>`;
+  return `<div class="card"><div class="title">${esc(p.title)}</div>
+    <div class="badges">${ciBadge}${fleet?'<span class="badge b-purple">flotte B</span>':''}${revBadge}</div>
+    <div class="labels">${labels}</div>${actions}
+    <a href="${esc(p.url||'#')}" target="_blank" class="num">#${p.number} · ${esc(p.headRefName)} ↗</a></div>`;
+}
+
+function col(title, itemsHtml, count) {
+  return `<div class="col"><h2>${title}<span class="count">${count}</span></h2>${itemsHtml || '<div class="empty">vide</div>'}</div>`;
+}
+
+function render(s) {
+  document.getElementById('repolink').textContent = s.repo;
+  document.getElementById('repolink').href = 'https://github.com/' + s.repo;
+  document.getElementById('when').textContent = '— ' + new Date(s.when).toLocaleTimeString('fr-FR');
+
+  const issues = s.issues || [], prs = s.prs || [];
+  const prByNum = {}; prs.forEach(p => prByNum[p.number] = p);
+
+  const isIdea = i => (i.labels||[]).some(l => l.name === 'idea/draft' || l.name === 'idea/approved');
+  const hasL = (o, n) => (o.labels||[]).some(l => l.name === n);
+
+  // Colonne 1 : idées en attente de porte 1
+  const waiting = issues.filter(i => i.state === 'OPEN' && isIdea(i) && !hasL(i,'idea/approved'));
+  // Colonne 2 : idées approuvées (en chantier flotte B)
+  const approved = issues.filter(i => i.state === 'OPEN' && hasL(i,'idea/approved'));
+  // Colonne 3 : PRs en cours (pas encore verify/ok)
+  const building = prs.filter(p => !hasL(p,'verify/ok'));
+  // Colonne 4 : PRs prêtes (verify/ok) → porte 2
+  const ready = prs.filter(p => hasL(p,'verify/ok'));
+
+  document.getElementById('cols').innerHTML =
+    col('🧠 Idées (porte 1)', waiting.map(i => issueCard(i,'door1')).join(''), waiting.length) +
+    col('✅ Approuvées / chantier', approved.map(i => issueCard(i,'approved')).join(''), approved.length) +
+    col('🏗️ PRs en cours', building.map(p => prCard(p, s.ci?.[p.number], s.reviews?.[p.number])).join(''), building.length) +
+    col('🚀 Prêtes à merger (porte 2)', ready.map(p => prCard(p, s.ci?.[p.number], s.reviews?.[p.number])).join(''), ready.length);
+
+  // Runs
+  const runs = s.runs || [];
+  document.getElementById('runs').innerHTML =
+    `<tr><th>Workflow</th><th>Titre</th><th>Statut</th><th></th></tr>` +
+    (runs.length ? runs.map(r => {
+      const concl = { success:['d-green','✔'], failure:['d-red','✖'], cancelled:['d-dim','∅'],
+        in_progress:['d-yellow','⏳'], queued:['d-yellow','⏳'] }[r.status === 'in_progress' || r.status === 'queued' ? r.status : r.conclusion] || ['d-dim','?'];
+      return `<tr><td>${esc(r.workflowName)}</td><td>${esc(r.displayTitle||r.headBranch||'')}</td>
+        <td><span class="dot ${concl[0]}"></span>${concl[1]}</td>
+        <td>${r.status!=='completed' ? `<button class="btn-ghost" onclick="act('rerun',${r.databaseId},null,'Relancer run ${r.databaseId}')">relancer</button>` : ''}</td></tr>`;
+    }).join('') : '<tr><td class="empty">aucun run</td></tr>');
+
+  // Revues
+  const rv = Object.entries(s.reviews || {});
+  document.getElementById('reviews').innerHTML =
+    `<tr><th>PR</th><th>Verdict</th><th>Extrait</th></tr>` +
+    (rv.length ? rv.map(([n, r]) => `<tr><td>#${n}</td>
+      <td>${r.verdict==='GO' ? '<span class="badge b-green">GO</span>' : '<span class="badge b-red">'+esc(r.verdict)+'</span>'}</td>
+      <td>${esc(r.excerpt.slice(0,120))}…</td></tr>`).join('')
+    : '<tr><td class="empty">aucune revue détectée</td></tr>');
+}
+
+async function refresh() {
+  try {
+    const r = await fetch('/api/state');
+    const s = await r.json();
+    if (s.errors && s.errors.length) toast('⚠ ' + s.errors[0], false);
+    render(s);
+  } catch (e) { document.getElementById('live').textContent = '⚠ hors ligne'; }
+}
+refresh();
+setInterval(refresh, 10000);
+</script>
+</body>
+</html>

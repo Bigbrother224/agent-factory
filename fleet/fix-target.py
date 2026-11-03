@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Cible d'un !fix : trouve la PR ouverte liée à l'issue, en déduit slug + branche.
-Sortie : «SLUG|BRANCH» si PR liée trouvée (BRANCH non vide), sinon «SLUG|» (fallback titre).
+"""Cible d'un !fix : PR ouverte liée à l'issue + axe (labels axe/*).
+Sortie : «SLUG|BRANCH|AXE» (BRANCH vide = fallback titre ; AXE vide = pas de label d'axe).
 Seules les branches fleet/* sont des cibles valides (projets de la flotte).
 """
 import json
@@ -12,9 +12,22 @@ import sys
 sys.path.insert(0, os.path.dirname(__file__))
 from slugify import slug  # noqa: E402
 
+repo = os.environ.get("REPO", "")
 issue = os.environ.get("ISSUE_NUMBER", "")
+
+# Axe depuis les labels de l'issue
+labels = json.loads(subprocess.run(
+    ["gh", "issue", "view", issue, "-R", repo, "--json", "labels"],
+    capture_output=True, text=True, check=True,
+).stdout)
+axe = ""
+for lab in labels.get("labels", []):
+    if lab["name"].startswith("axe/"):
+        axe = lab["name"].removeprefix("axe/")
+        break
+
 out = subprocess.run(
-    ["gh", "pr", "list", "-R", os.environ.get("REPO", ""), "--state", "open",
+    ["gh", "pr", "list", "-R", repo, "--state", "open",
      "--json", "number,headRefName,body", "--limit", "30"],
     capture_output=True, text=True, check=True,
 ).stdout
@@ -25,11 +38,11 @@ for pr in json.loads(out):
     if not head.startswith("fleet/") or not re.fullmatch(r"fleet/[a-z0-9-]+", head):
         continue
     if f"issue #{issue}" in body:
-        print(f"{head.removeprefix('fleet/')}|{head}")
+        print(f"{head.removeprefix('fleet/')}|{head}|{axe}")
         sys.exit(0)
     if f"#{issue}" in body and fallback is None:
         fallback = head
 if fallback:
-    print(f"{fallback.removeprefix('fleet/')}|{fallback}")
+    print(f"{fallback.removeprefix('fleet/')}|{fallback}|{axe}")
     sys.exit(0)
-print(f"{slug(os.environ.get('ISSUE_TITLE', ''))}|")
+print(f"{slug(os.environ.get('ISSUE_TITLE', ''))}||{axe}")

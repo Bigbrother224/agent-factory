@@ -20,7 +20,9 @@ fi
 if [ $# -gt 0 ]; then
   TARGETS="$*"
 else
-  TARGETS=$(ls "$PROJECTS_DIR")
+  # Convention : projects/<axe>/<projet> (2 niveaux). Les projets posés à plat
+  # (legacy) ne sont pas découverts : la CI n'accepte que la structure par axes.
+  TARGETS=$(cd "$PROJECTS_DIR" && ls -d */*/ 2>/dev/null | sed 's:/$::' | tr '\n' ' ')
 fi
 
 for name in $TARGETS; do

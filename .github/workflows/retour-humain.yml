@@ -55,20 +55,27 @@ jobs:
           REPO: ${{ github.repository }}
         run: |
           TARGET=$(python3 fleet/fix-target.py)
-          SLUG="${TARGET%%|*}"
-          BRANCH="${TARGET#*|}"
+          SLUG="$(echo "$TARGET" | cut -d'|' -f1)"
+          BRANCH="$(echo "$TARGET" | cut -d'|' -f2)"
+          AXE="$(echo "$TARGET" | cut -d'|' -f3)"
+          if [ -z "$AXE" ]; then
+            gh issue comment "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" \
+              --body "!fix bloqué : l'issue n'a pas de label d'axe (axe/*). Ajoute l'axe du projet puis recommence."
+            exit 1
+          fi
           if [ -z "$BRANCH" ]; then
             if git ls-remote --exit-code --heads origin "fleet/$SLUG" >/dev/null 2>&1; then
               BRANCH="fleet/$SLUG"
-            elif [ -d "projects/$SLUG" ]; then
+            elif [ -d "projects/$AXE/$SLUG" ]; then
               BRANCH="origin/main"
             else
               gh issue comment "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" \
-                --body "!fix ignoré : aucun projet \`projects/$SLUG\` ni PR liée à cette issue. Commente sur l'issue du projet concerné." >/dev/null
+                --body "!fix ignoré : aucun projet projects/$AXE/$SLUG ni PR liée à cette issue. Commente sur l'issue du projet concerné." >/dev/null
               exit 1
             fi
           fi
           echo "SLUG=$SLUG" >> "$GITHUB_ENV"
+          echo "AXE=$AXE" >> "$GITHUB_ENV"
           echo "BASE=$BRANCH" >> "$GITHUB_ENV"
 
       - name: Session Aider sur tes instructions
@@ -88,18 +95,18 @@ jobs:
             echo "=== Tentative $ATTEMPT/3 ==="
             BEFORE=$(git rev-parse HEAD)
             if [ "$ATTEMPT" = "1" ]; then
-              $AIDER --test-cmd "./verify.sh $SLUG" --auto-test \
-                --message "Retour humain sur l'issue : applique ces instructions sur projects/$SLUG/ UNIQUEMENT : $INSTRUCTIONS. Règle 4 du contrat reste non négociable : ./verify.sh $SLUG vert avant de terminer, sortie rapportée réellement."
+              $AIDER --test-cmd "./verify.sh $AXE/$SLUG" --auto-test \
+                --message "Retour humain sur l'issue : applique ces instructions sur projects/$AXE/$SLUG/ UNIQUEMENT : $INSTRUCTIONS. Règle 4 du contrat reste non négociable : ./verify.sh $AXE/$SLUG vert avant de terminer, sortie rapportée réellement."
             else
-              $AIDER --test-cmd "./verify.sh $SLUG" --auto-test \
-                --message "Tentative $ATTEMPT/3 : la session précédente n'a produit AUCUNE modification appliquée ou l'arbitre ./verify.sh $SLUG est ROUGE. Réponds OBLIGATOIREMENT avec des blocs udiff SEARCH/REPLACE complets qui s'appliquent. Instructions : $INSTRUCTIONS. Ne modifie rien en dehors de projects/$SLUG/."
+              $AIDER --test-cmd "./verify.sh $AXE/$SLUG" --auto-test \
+                --message "Tentative $ATTEMPT/3 : la session précédente n'a produit AUCUNE modification appliquée ou l'arbitre ./verify.sh $AXE/$SLUG est ROUGE. Réponds OBLIGATOIREMENT avec des blocs udiff SEARCH/REPLACE complets qui s'appliquent. Instructions : $INSTRUCTIONS. Ne modifie rien en dehors de projects/$AXE/$SLUG/."
             fi
             CHANGED=0
             if [ -n "$(git log HEAD --not "$BEFORE")" ] || [ -n "$(git status --porcelain)" ]; then CHANGED=1; fi
-            if [ "$CHANGED" = "1" ] && ./verify.sh "$SLUG"; then GREEN=1; break; fi
+            if [ "$CHANGED" = "1" ] && ./verify.sh "$AXE/$SLUG"; then GREEN=1; break; fi
             if [ "$CHANGED" = "0" ]; then echo "=== Aucune modification appliquée — nouvelle tentative ==="; fi
           done
-          ./verify.sh "$SLUG" > /tmp/verify-final.txt 2>&1 || true
+          ./verify.sh "$AXE/$SLUG" > /tmp/verify-final.txt 2>&1 || true
           echo "GREEN=$GREEN" >> "$GITHUB_ENV"
 
       - name: Résultat (PR à jour + labels)
