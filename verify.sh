@@ -65,6 +65,12 @@ for name in $TARGETS; do
 done
 
 printf '\n'
+
+# Garde budgétaire (ordre humain 2026-11-03) : le flagship glm-5.3 est INTERDIT — flash uniquement.
+if grep -rq "glm-5.3:cloud" "$REPO_ROOT/.github/workflows" 2>/dev/null; then
+  fail "budget : glm-5.3:cloud (flagship) détecté dans .github/workflows — interdit, glm-5.3-flash:cloud uniquement"
+fi
+
 if [ "$FAILURES" -gt 0 ]; then
   printf '\033[31m[verify] %d échec(s) sur %d projet(s). PR REFUSÉE.\033[0m\n' "$FAILURES" "$CHECKED"
   exit 1

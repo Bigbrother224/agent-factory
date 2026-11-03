@@ -1,6 +1,6 @@
 # Étape 3 — Audition de la flotte B : RÉSULTATS FINAUX
 
-Contrainte verrouillée par l'humain (2026-11-02) : **zéro service tiers payant** — uniquement le plan Ollama existant. Candidats donc tous libres, tous pilotés par l'API Ollama (`https://ollama.com/v1`, clé Trousseau `pi-ollama`), même brief (`BRIEF-B.md`), même modèle (`glm-5.3:cloud`).
+Contrainte verrouillée par l'humain (2026-11-02) : **zéro service tiers payant** — uniquement le plan Ollama existant. Candidats donc tous libres, tous pilotés par l'API Ollama (`https://ollama.com/v1`, clé Trousseau `pi-ollama`), même brief (`BRIEF-B.md`), même modèle (`glm-5.3:cloud` — le flagship était alors autorisé ; interdit depuis le 2026-11-03).
 
 ## Tableau factuel
 
@@ -28,10 +28,12 @@ Contrainte verrouillée par l'humain (2026-11-02) : **zéro service tiers payant
 
 **La flotte B = Aider**, configuration verrouillée :
 ```
-aider --model openai/glm-5.3:cloud --openai-api-base https://ollama.com/v1 \
+aider --model openai/glm-5.3-flash:cloud --openai-api-base https://ollama.com/v1 \
   --weak-model openai/glm-5.3-flash:cloud --edit-format udiff --yes-always \
   --test-cmd "./verify.sh <projet>" --auto-test --message "<tâche>"
 ```
 - Gratuit (libre), git-native (commits + PR), auto-test branché sur l'arbitre → boucle `verify/failed` autonome intégrée.
 - Point de vigilance usine : toujours brancher `--test-cmd` sur `verify.sh` + l'arbitre CI en bout de chaîne, car le modèle peut **halluciner une vérification** — seul l'arbitre froid dit la vérité.
 - OpenHands : écarté (non-convergence). SWE-agent : disponible pour une audition ultérieure si on veut un challenger, une commande prête suffit.
+
+> ⚠️ **Mise à jour 2026-11-03, ordre humain : le flagship `glm-5.3:cloud` est INTERDIT — uniquement `glm-5.3-flash:cloud` (abonnement).** Toute config ci-dessus s'entend corrigée en ce sens.

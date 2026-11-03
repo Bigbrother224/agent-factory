@@ -23,6 +23,10 @@ Dernière mise à jour : 2026-11-02
 ## Prochaine étape
 Valider le premier cycle complet sous la nouvelle structure : le cron scout de demain (08:30 UTC) doit produire une idée alignée axe (sinon échec explicite) → porte 1 → flotte → porte 2. En parallèle : brancher le dashboard (3e agent pi) sur les labels (source de vérité : idea/*, axe/*, ship/pr, verify/*).
 
+## Règles humaines verrouillées (2026-11-03)
+- **glm-5.3:cloud (flagship) INTERDIT partout** — uniquement `glm-5.3-flash:cloud` (abonnement). Verrouillé dans verify.sh : toute PR l'introduisant est refusée par la CI.
+- Le dashboard est l'outil personnel de l'humain — pas d'axes d'amélioration imposés par l'usine.
+
 ## Décisions en attente
 - Dashboard : architecture (lit GitHub en direct via gh, ou s'appuie sur un fichier d'état ?) — à coordonner avec le 3e agent pi.
 - Public/privé : le repo doit-il devenir public pour être un vrai portfolio GitHub ? (branch protection gratuite au passage).
