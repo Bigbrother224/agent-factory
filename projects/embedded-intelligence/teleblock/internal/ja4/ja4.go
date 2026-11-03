@@ -228,8 +228,10 @@ func Parse(record []byte) (*Hello, error) {
 		}
 	}
 
-	// The negotiated version: highest supported_versions value when
-	// the extension exists (GREASE ignored), else the legacy version.
+	// The negotiated version: FIRST non-GREASE value of supported_versions
+	// (FoxIO spec), not the highest — a client listing 0x0303 before 0x0304
+	// must fingerprint as TLS 1.2 (review: max produced wrong fingerprints).
+	// Falls back to the legacy version when the extension is absent.
 	nonGrease := make([]uint16, 0, len(supported))
 	for _, v := range supported {
 		if !isGrease(v) {
@@ -237,13 +239,7 @@ func Parse(record []byte) (*Hello, error) {
 		}
 	}
 	if len(nonGrease) > 0 {
-		max := nonGrease[0]
-		for _, v := range nonGrease {
-			if v > max {
-				max = v
-			}
-		}
-		parsed.Version = versionField(max)
+		parsed.Version = versionField(nonGrease[0])
 	}
 	return parsed, nil
 }

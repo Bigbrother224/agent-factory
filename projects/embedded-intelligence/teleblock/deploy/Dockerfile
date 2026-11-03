@@ -19,6 +19,9 @@ RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH \
 	go build -trimpath -ldflags="-s -w" -o /out/teleblock .
 
 FROM alpine:3.20
+# EXPOSE documents the full network surface read-only; under host mode
+# (required for iptables REDIRECT) the ports are the host's network.
+EXPOSE 53/udp 8449/tcp 8080/tcp
 
 RUN apk add --no-cache iptables
 

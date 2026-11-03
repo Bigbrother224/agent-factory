@@ -147,6 +147,25 @@ func TestTLS12WithoutALPN(t *testing.T) {
 	}
 }
 
+// FoxIO spec : la version négociée est la PREMIÈRE valeur non-GREASE de
+// supported_versions, pas la plus haute — un client qui liste [GREASE,
+// 0x0303, 0x0304] doit alors se préparer en TLS 1.3 mais se faire
+// préparer en TLS 1.2 en empreinte : 12, pas 13.
+func TestFirstNonGreaseVersionOrder(t *testing.T) {
+	ciphers := []uint16{0x1301}
+	extensions := []uint16{0x002b}
+	bodies := map[uint16][]byte{
+		extensionSupportedVers: u16vector8([]uint16{0x0a0a, 0x0303, 0x0304}),
+	}
+	h, err := Parse(helloRecord(0x0303, ciphers, extensions, bodies))
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	if h.Version != "12" {
+		t.Errorf("Version = %q, want 12 (première valeur non-GREASE = 0x0303)", h.Version)
+	}
+}
+
 func TestTLS13NoSNIAndNoALPN(t *testing.T) {
 	// No server_name (→ i), no ALPN (→ 00), version taken from
 	// supported_versions, GREASE versions ignored there too.

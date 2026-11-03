@@ -22,58 +22,34 @@ func RedirectRule(listenPort int) string {
 // RedirectPort validates that rule is a TeleBlock REDIRECT rule for
 // port 443 and returns the local listen port it targets.
 func RedirectPort(rule string) (int, error) {
+	// Forme STRICTE, positionnelle : exactement 12 tokens, la valeur de
+	// certains changé (ports). Aucun token supplémentaire toléré entre
+	// les drapeaux (revue : `-s 192.168.1.0/24` ou --comment d'une règle
+	// étrangère passait pour une règle TeleBlock).
+	const (
+		wantTable, wantChain, wantProto, wantTarget = "nat", "PREROUTING", "tcp", "REDIRECT"
+	)
 	fields := strings.Fields(rule)
-	var want []string
-	for _, f := range fields {
-		switch f {
-		case "-t", "-A", "-p", "--dport", "-j", "--to-ports":
-			want = append(want, f)
-		}
+	// Préfixe optionnel « iptables » (sortie réelle de RedirectRule) : un
+	// seul token, strictement ce mot — tout autre préfixe est rejeté.
+	if len(fields) > 0 && fields[0] == "iptables" {
+		fields = fields[1:]
 	}
-	// Exactly the six flags of our rule, in order.
-	got := fmt.Sprint(want)
-	if got != "[-t -A -p --dport -j --to-ports]" {
+	if len(fields) != 12 ||
+		fields[0] != "-t" || fields[1] != wantTable ||
+		fields[2] != "-A" || fields[3] != wantChain ||
+		fields[4] != "-p" || fields[5] != wantProto ||
+		fields[6] != "--dport" || fields[7] != strconv.Itoa(RedirectIPPort) ||
+		fields[8] != "-j" || fields[9] != wantTarget ||
+		fields[10] != "--to-ports" {
 		return 0, fmt.Errorf("tcp: not a TeleBlock REDIRECT rule: %q", rule)
 	}
-	// The flag values are as fixed as the flags: only the nat table,
-	// the PREROUTING chain, TCP and the REDIRECT target define a
-	// TeleBlock rule (a rule like `-t mangle -A OUTPUT -p udp -j MARK`
-	// must be rejected even though it carries the same flags).
-	for _, v := range [4]struct{ flag, want string }{
-		{"-t", "nat"},
-		{"-A", "PREROUTING"},
-		{"-p", "tcp"},
-		{"-j", "REDIRECT"},
-	} {
-		i := index(fields, v.flag)
-		if i < 0 || i+1 >= len(fields) || fields[i+1] != v.want {
-			return 0, fmt.Errorf("tcp: not a TeleBlock REDIRECT rule: %q", rule)
-		}
-	}
-	dport := index(fields, "--dport")
-	if dport < 0 || dport+1 >= len(fields) {
-		return 0, fmt.Errorf("tcp: not a TeleBlock REDIRECT rule: %q", rule)
-	}
-	if fields[dport+1] != strconv.Itoa(RedirectIPPort) {
-		return 0, fmt.Errorf("tcp: rule must redirect --dport %d: %q", RedirectIPPort, rule)
-	}
-	i := index(fields, "--to-ports")
-	if i < 0 || i+1 >= len(fields) {
-		return 0, fmt.Errorf("tcp: not a TeleBlock REDIRECT rule: %q", rule)
-	}
-	port, err := strconv.Atoi(fields[i+1])
+	port, err := strconv.Atoi(fields[11])
 	if err != nil || port < 1 || port > 65535 {
 		return 0, fmt.Errorf("tcp: invalid --to-ports in %q", rule)
 	}
 	return port, nil
 }
 
-// index returns the position of s in fields, -1 when absent.
-func index(fields []string, s string) int {
-	for i, f := range fields {
-		if f == s {
-			return i
-		}
-	}
-	return -1
-}
+// Strict positional shape: index() removed — the exact 12-token check
+// above makes positional scanning by flags unnecessary.
