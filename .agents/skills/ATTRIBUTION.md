@@ -20,10 +20,7 @@ Skills installés le 2026-11-03, sélectionnés pour équiper les agents de l'us
   « tells du design généré par IA » (kit SaaS-cards, fond crème + terracotta, eyebrows
   ALL-CAPS, « → » sur les boutons) — l'antidote direct au « on voit trop que c'est vibecodé ».
 
-Les fichiers `.agents/skills/` sont les textes canoniques (découverts par tout agent pi
-travaillant dans ce repo). Les `fleet/skills/` sont leurs adaptations-condensés injectées
-dans les briefs des sessions Aider (chantier + flotte), qui ne découvrent pas les skills
-automatiquement.
+Les `.agents/skills/` sont les textes canoniques (découverts par tout agent pi travaillant dans ce repo). Les `fleet/skills/` sont leurs adaptations condensées injectées dans les briefs des sessions Aider (chantier + flotte), qui ne découvrent pas les skills automatiquement. Les fichiers compagnons référencés (writing-good-tests, root-cause-tracing, defense-in-depth, condition-based-waiting) sont inclus pour éviter toute référence pendante.
 
 ## Mise à jour
 
