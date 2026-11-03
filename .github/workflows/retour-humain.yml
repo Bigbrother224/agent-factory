@@ -76,7 +76,7 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OLLAMA_API_KEY }}
           COMMENT_BODY: ${{ github.event.comment.body }}
         run: |
-          git checkout -B "fleet/$SLUG" "$BASE"
+          git checkout -B "fleet/$SLUG" "origin/$BASE"
           INSTRUCTIONS=$(printf '%s' "$COMMENT_BODY" | sed 's/^!fix *//')
           AIDER="aider --model openai/glm-5.3:cloud --openai-api-base https://ollama.com/v1 \
             --weak-model openai/glm-5.3-flash:cloud --edit-format udiff \

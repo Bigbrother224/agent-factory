@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """Cible d'un !fix : trouve la PR ouverte liée à l'issue, en déduit slug + branche.
 Sortie : «SLUG|BRANCH» si PR liée trouvée (BRANCH non vide), sinon «SLUG|» (fallback titre).
+Seules les branches fleet/* sont des cibles valides (projets de la flotte).
 """
 import json
 import os
+import re
 import subprocess
 import sys
 
@@ -16,10 +18,18 @@ out = subprocess.run(
      "--json", "number,headRefName,body", "--limit", "30"],
     capture_output=True, text=True, check=True,
 ).stdout
+fallback = None
 for pr in json.loads(out):
-    body = pr.get("body") or ""
-    if f"#{issue}" in body:
-        branch = pr["headRefName"]
-        print(f"{branch.removeprefix('fleet/')}|{branch}")
+    body = (pr.get("body") or "").lower()
+    head = pr["headRefName"]
+    if not head.startswith("fleet/") or not re.fullmatch(r"fleet/[a-z0-9-]+", head):
+        continue
+    if f"issue #{issue}" in body:
+        print(f"{head.removeprefix('fleet/')}|{head}")
         sys.exit(0)
+    if f"#{issue}" in body and fallback is None:
+        fallback = head
+if fallback:
+    print(f"{fallback.removeprefix('fleet/')}|{fallback}")
+    sys.exit(0)
 print(f"{slug(os.environ.get('ISSUE_TITLE', ''))}|")
