@@ -1,12 +1,10 @@
 #!/usr/bin/env node
 /**
- * Dashboard de l'usine — agent-factory (v2, structure portfolio 3 axes)
+ * Dashboard de l'usine — agent-factory (v3 : atelier en direct)
  * Sert localhost:7777. GitHub reste l'unique bus :
- *  - LECTURE : issues, PRs, runs, commentaires, verdicts kimi, contenu du portfolio.
+ *  - LECTURE : issues, PRs, runs, jobs/étapes en cours, logs live,
+ *    commentaires, verdicts kimi, roadmap des chantiers, portfolio.
  *  - ÉCRITURE : uniquement les décisions humaines (labels, merge, notes/!fix).
- * Le composeur de notes publie des commentaires d'issue :
- *  - mode "fix"  → « !fix … » → workflow retour-humain → la flotte exécute.
- *  - mode "note" → commentaire simple → visible par toi, le scout et toute relecture.
  */
 const http = require('http');
 const { execFile } = require('child_process');
@@ -32,79 +30,141 @@ async function ghJson(args) {
   catch (e) { return { ok: false, data: null, err: 'JSON invalide: ' + e.message }; }
 }
 const ghList = (args) => ghJson([...args, '-R', REPO]);
-async function ghApi(rest) { return ghJson(['api', `repos/${REPO}/${rest}`]); }
+const ghApi = (rest) => ghJson(['api', `repos/${REPO}/${rest}`]);
 
-/* ---------- Lecture de l'état complet ---------- */
+/* Même slug que fleet/slugify.py : 3 mots, max 24 car. */
+function slugify(title) {
+  const s = String(title).normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9]+/g, '-').toLowerCase().replace(/^-+|-+$/g, '');
+  const w = s.split('-').filter(Boolean);
+  return w.slice(0, 3).join('-').slice(0, 24).replace(/-+$/g, '') || 'projet';
+}
+
+/* ROADMAP.md d'un chantier : tranches faites / total + tranche courante */
+function parseRoadmap(md) {
+  const lines = md.split(/\r?\n/).filter((l) => /- \[( |x|X)\] T\d/i.test(l));
+  if (!lines.length) return null;
+  const done = lines.filter((l) => /- \[[xX]\]/.test(l)).length;
+  const nxt = lines.find((l) => /- \[ \]/.test(l));
+  const current = nxt
+    ? nxt.replace(/^- \[ \] T\d+\s*:?\s*/i, '').replace(/— fichiers:.*$/i, '').slice(0, 100).trim()
+    : null;
+  return { total: lines.length, done, current, finished: !nxt };
+}
+
 async function fetchState() {
   const state = { repo: REPO, when: new Date().toISOString(), errors: [], axes: AXES };
-  const [issues, prs, runs, veille] = await Promise.all([
+  const [issues, prs, runs] = await Promise.all([
     ghList(['issue', 'list', '--state', 'all', '--limit', '50', '--json',
-      'number,title,state,labels,body,createdAt,updatedAt,url']),
+      'number,title,state,labels,createdAt,updatedAt,url']),
     ghList(['pr', 'list', '--state', 'all', '--limit', '40', '--json',
-      'number,title,state,labels,headRefName,baseRefName,statusCheckRollup,createdAt,updatedAt,url']),
+      'number,title,state,labels,headRefName,statusCheckRollup,createdAt,updatedAt,url']),
     ghList(['run', 'list', '--limit', '30', '--json',
       'databaseId,displayTitle,workflowName,status,conclusion,createdAt,event,headBranch']),
-    ghApi('contents/.veille'),
   ]);
   if (issues.ok) state.issues = issues.data; else state.errors.push('issues: ' + issues.err);
   if (prs.ok) state.prs = prs.data; else state.errors.push('prs: ' + prs.err);
   if (runs.ok) state.runs = runs.data; else state.errors.push('runs: ' + runs.err);
-  if (veille.ok && Array.isArray(veille.data)) {
-    const digests = veille.data.filter(f => /^[\d-]+\.md$/.test(f.name)).map(f => f.name.replace('.md', ''));
-    state.lastDigest = digests.sort().pop() || null;
-  }
   if (!state.issues || !state.prs) return state;
 
-  /* Fil de communication : commentaires des issues ouvertes (les tiens + ceux de l'usine) */
+  const hasL = (o, n) => (o.labels || []).some((l) => l.name === n);
+  const axeOf = (i) => { const l = (i.labels || []).find((x) => x.name.startsWith('axe/')); return l ? l.name.slice(4) : null; };
+
+  /* --- Atelier en direct : jobs/étapes + logs des runs actifs --- */
+  state.live = [];
+  const active = (state.runs || []).filter((r) => r.status === 'in_progress' || r.status === 'queued').slice(0, 3);
+  for (const r of active) {
+    const jr = await ghApi(`actions/runs/${r.databaseId}/jobs`);
+    if (!jr.ok || !jr.data || !jr.data.jobs || !jr.data.jobs.length) {
+      state.live.push({ id: r.databaseId, workflow: r.workflowName, title: r.displayTitle, status: r.status, startedAt: r.createdAt, steps: [] });
+      continue;
+    }
+    const job = jr.data.jobs.find((j) => j.status === 'in_progress') || jr.data.jobs[0];
+    const entry = {
+      id: r.databaseId, workflow: r.workflowName, title: r.displayTitle,
+      status: r.status, startedAt: r.createdAt,
+      steps: (job.steps || []).map((s) => ({
+        name: s.name, status: s.status, conclusion: s.conclusion,
+        startedAt: s.startedAt, completedAt: s.completedAt,
+      })),
+    };
+    if (job.status === 'in_progress') {
+      const log = await gh(['api', `repos/${REPO}/actions/jobs/${job.id}/logs`]);
+      if (log.ok) entry.logTail = log.out.slice(-4000).split(/\r?\n/).slice(-40).join('\n');
+    }
+    state.live.push(entry);
+  }
+
+  /* --- Fil de communication : commentaires des issues ouvertes --- */
   state.comments = {};
-  const openIssues = state.issues.filter(i => i.state === 'OPEN' &&
-    !(i.labels || []).some(l => l.name === 'documentation')).slice(0, 10);
-  const issueComments = await Promise.all(openIssues.map(i =>
+  const openIssues = state.issues.filter((i) => i.state === 'OPEN' &&
+    !(i.labels || []).some((l) => l.name === 'documentation')).slice(0, 10);
+  const issueComments = await Promise.all(openIssues.map((i) =>
     ghList(['issue', 'view', String(i.number), '--json', 'comments'])));
   issueComments.forEach((r, k) => {
     if (!r.ok || !r.data) return;
-    state.comments[openIssues[k].number] = (r.data.comments || []).slice(-5).map(c => ({
-      author: c.author ? c.author.login : '?',
-      at: c.createdAt, body: c.body || '',
+    state.comments[openIssues[k].number] = (r.data.comments || []).slice(-5).map((c) => ({
+      author: c.author ? c.author.login : '?', at: c.createdAt, body: c.body || '',
     }));
   });
 
-  /* Revues kimi + derniers commentaires des PRs ouvertes */
+  /* --- Revues kimi + commentaires des PRs ouvertes --- */
   state.reviews = {}; state.prComments = {}; state.ci = {};
-  const openPrs = state.prs.filter(p => p.state === 'OPEN').slice(0, 10);
-  const prViews = await Promise.all(openPrs.map(p =>
-    ghList(['pr', 'view', String(p.number), '--json', 'comments,labels'])));
+  const openPrs = state.prs.filter((p) => p.state === 'OPEN').slice(0, 10);
+  const prViews = await Promise.all(openPrs.map((p) =>
+    ghList(['pr', 'view', String(p.number), '--json', 'comments'])));
   prViews.forEach((r, k) => {
     const pr = openPrs[k];
     const rollup = pr.statusCheckRollup || [];
-    const failed = rollup.filter(c => c.conclusion && c.conclusion !== 'success' && c.conclusion !== 'skipped');
-    const pending = rollup.filter(c => !c.conclusion);
+    const failed = rollup.filter((c) => c.conclusion && c.conclusion !== 'success' && c.conclusion !== 'skipped');
+    const pending = rollup.filter((c) => !c.conclusion);
     state.ci[pr.number] = rollup.length === 0 ? 'none'
       : failed.length ? 'red' : pending.length ? 'pending' : 'green';
     if (!r.ok || !r.data) return;
     const comments = r.data.comments || [];
-    state.prComments[pr.number] = comments.slice(-4).map(c => ({
+    state.prComments[pr.number] = comments.slice(-4).map((c) => ({
       author: c.author ? c.author.login : '?', at: c.createdAt, body: c.body || '',
     }));
     for (let j = comments.length - 1; j >= 0; j--) {
       const b = comments[j].body || '';
-      const m = b.match(/\*\*(GO|NO-GO|NO GO)\*\*/) || b.match(/\b(GO|NO-GO|NO GO)\b/);
-      if (m && /revue|verdict|groupe c|review/i.test(b)) {
-        state.reviews[pr.number] = {
+      if (b.startsWith('## Revue du groupe C')) {
+        const m = b.match(/\*\*(GO|NO-GO|NO GO)\*\*/i);
+        state.reviews[pr.number] = m ? {
           verdict: m[1].toUpperCase().replace('NO GO', 'NO-GO'),
           excerpt: b.replace(/[#*`>]/g, '').slice(0, 260),
-        };
+        } : { verdict: '?', excerpt: b.slice(0, 260) };
         break;
       }
     }
   });
 
-  /* Portfolio : contenu réel de projects/<axe>/ (shippé sur main) + présence README */
+  /* --- Roadmap des chantiers : avancement des tranches (branche du PR) --- */
+  state.roadmap = {};
+  const chantierPrs = openPrs.filter((p) => /^(chantier|fleet)\//.test(p.headRefName)).slice(0, 4);
+  for (const p of chantierPrs) {
+    const slug = p.headRefName.split('/').pop();
+    const issue = state.issues.find((i) => {
+      const s = slugify(i.title);
+      const t = i.title.toLowerCase();
+      return axeOf(i) && (s === slug || s.includes(slug) || t.includes(slug));
+    });
+    if (!issue) continue;
+    const axe = axeOf(issue);
+    const rr = await ghApi(`contents/projects/${axe}/${slug}/ROADMAP.md?ref=${encodeURIComponent(p.headRefName)}`);
+    if (!rr.ok || !rr.data || !rr.data.content) continue;
+    try {
+      const md = Buffer.from(rr.data.content, 'base64').toString('utf8');
+      const rm = parseRoadmap(md);
+      if (rm) state.roadmap[p.number] = rm;
+    } catch (e) { /* roadmap illisible : ignorée */ }
+  }
+
+  /* --- Portfolio : contenu réel de projects/<axe>/ sur main --- */
   state.portfolio = {};
   await Promise.all(AXES.map(async (axe) => {
     const r = await ghApi(`contents/projects/${axe}`);
     if (!r.ok || !Array.isArray(r.data)) { state.portfolio[axe] = []; return; }
-    const dirs = r.data.filter(e => e.type === 'dir').slice(0, 5);
+    const dirs = r.data.filter((e) => e.type === 'dir').slice(0, 5);
     const projects = await Promise.all(dirs.map(async (d) => {
       const rr = await ghApi(`contents/projects/${axe}/${d.name}/README.md`);
       return { slug: d.name, readme: rr.ok };
@@ -115,10 +175,10 @@ async function fetchState() {
   return state;
 }
 
-/* ---------- Cache (évite de marteler l'API) ---------- */
+/* ---------- Cache (budget API GitHub maîtrisé) ---------- */
 let cache = { when: 0, state: null };
 async function getState() {
-  if (cache.state && Date.now() - cache.when < 15000) return cache.state;
+  if (cache.state && Date.now() - cache.when < 20000) return cache.state;
   const s = await fetchState();
   if (s.issues && s.prs) cache = { when: Date.now(), state: s };
   return cache.state || s;
@@ -129,7 +189,7 @@ const ACTIONS = {
   approve_idea: (n) => gh(['issue', 'edit', String(n), '-R', REPO, '--add-label', 'idea/approved']),
   reject_idea: async (n, reason) => {
     await gh(['issue', 'comment', String(n), '-R', REPO, '--body',
-      '🚫 Rejetée par l\'humain — raison : ' + String(reason || 'non précisée')]);
+      '🚫 Rejetée par l\'humain. Raison : ' + String(reason || 'non précisée')]);
     await gh(['issue', 'edit', String(n), '-R', REPO, '--add-label', 'idea/rejected']);
   },
   set_axe: (n, axe) => {
@@ -146,11 +206,11 @@ const ACTIONS = {
   close_pr: (n) => gh(['pr', 'close', String(n), '-R', REPO]),
   comment_pr: (n, body) => gh(['pr', 'comment', String(n), '-R', REPO, '--body', String(body || '').slice(0, 2000)]),
   rerun: (id) => gh(['run', 'rerun', String(id), '-R', REPO]),
-  /* Le point de communication humain ↔ agents : commentaire d'issue.
+  /* Point de communication humain ↔ agents : commentaire d'issue.
      mode 'fix' → préfixé « !fix » → workflow retour-humain → session Aider. */
   note: async (n, extra) => {
     const text = String((extra && extra.text) || '').trim();
-    if (!text) return { ok: false, error: 'note vide' };
+    if (!text) return { ok: false, error: 'message vide' };
     const mode = extra.mode === 'fix' ? 'fix' : 'note';
     const body = mode === 'fix' ? '!fix ' + text : text;
     return gh(['issue', 'comment', String(n), '-R', REPO, '--body', body.slice(0, 4000)]);
@@ -186,6 +246,6 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(PORT, '127.0.0.1', () => {
-  console.log(`🏭 Dashboard usine v2 : http://localhost:${PORT}  (repo ${REPO})`);
-  console.log('   Notes : mode "fix" = !fix → la flotte exécute ; mode "note" = commentaire simple.');
+  console.log(`🏭 Dashboard usine v3 : http://localhost:${PORT}  (repo ${REPO})`);
+  console.log('   Atelier en direct : étapes + logs des runs actifs. Notes : Entrée = envoyer.');
 });

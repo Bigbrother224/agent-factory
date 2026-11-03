@@ -2,7 +2,7 @@ name: chantier-resident
 
 on:
   schedule:
-    - cron: "25 */2 * * *"
+    - cron: "25 */6 * * *"
   workflow_dispatch:
 
 permissions:
@@ -128,7 +128,7 @@ jobs:
           fi
           echo "TRANCHE=$TRANCHE" >> "$GITHUB_ENV"
 
-      - name: Tranche (session code, avec feedback kimi + skills)
+      - name: "Batch de tranches — jusqu à 3 par run (feedback kimi + skills + relance + rollback)"
         if: steps.state.outputs.active == '1' && env.FINISHED != '1'
         env:
           GH_TOKEN: ${{ github.token }}
@@ -136,6 +136,7 @@ jobs:
           NUM: ${{ steps.state.outputs.num }}
           OPENAI_API_KEY: ${{ secrets.OLLAMA_API_KEY }}
         run: |
+          # Feedback kimi : une fois par run (fraîcheur)
           gh pr list --head "$BR" --state open --json number --limit 1 -q '.[0].number' > /tmp/prnum || echo "" > /tmp/prnum
           FEEDBACK=""
           if [ -s /tmp/prnum ]; then
@@ -143,46 +144,79 @@ jobs:
               -q '[.comments[].body] | map(select(startswith("## Revue du groupe C"))) | last' > /tmp/revue.md || true
             [ -s /tmp/revue.md ] && FEEDBACK="AVANT de coder : lis /tmp/revue.md — la dernière revue kimi. Corrige en priorité les points BLOQUANT/SÉRIEUX qui concernent $PROJ/. "
           fi
-          BEFORE=$(git rev-parse HEAD)
-          # Brief complet (mission + discipline skills + contraintes) : les sessions Aider
-          # ne découvrent pas les skills pi — elles les reçoivent dans le brief.
           gh issue view "$NUM" --json body -q .body > /tmp/spec.md
-          {
-            printf '%s' "$FEEDBACK"
-            echo "Tu es le CODEUR du chantier. Implémente MAINTENANT la tranche «${TRANCHE#*] }» dans $PROJ/ en produisant des blocs udiff SEARCH/REPLACE complets dans cette réponse — pas de plan, pas d'attente : l'arbitre ./verify.sh est exécuté automatiquement après tes éditions, tu n'as rien à me demander. Lis d'abord $PROJ/ROADMAP.md pour le contexte."
-            echo
-            echo "## Discipline du codeur (skills de l'usine — NON NÉGOCIABLES)"
-            echo
-            cat fleet/skills/tdd.md 2>/dev/null || true
-            echo
-            cat fleet/skills/debugging.md 2>/dev/null || true
-            echo
-            cat fleet/skills/verification.md 2>/dev/null || true
-            if grep -riqE "ui|dashboard|web|interface|html|page" /tmp/spec.md "$PROJ/ROADMAP.md" 2>/dev/null; then
+          build_brief() {
+            {
+              printf '%s' "$1"
+              echo "$2"
               echo
-              echo "## Ce projet a une face visible — étalon design"
+              echo "## Discipline du codeur (skills de l'usine — NON NÉGOCIABLES)"
               echo
-              cat fleet/skills/frontend-design.md 2>/dev/null || true
-            fi
-            echo
-            echo "## Contraintes"
-            echo "- Ne modifie rien en dehors de $PROJ/."
-            echo "- Une fois les éditions faites, coche la tranche [x] dans $PROJ/ROADMAP.md (édite-le aussi)."
-          } > /tmp/brief-tranche.md
-          aider --model openai/glm-5.3-flash:cloud --openai-api-base https://ollama.com/v1 \
+              cat fleet/skills/tdd.md 2>/dev/null || true
+              echo
+              cat fleet/skills/debugging.md 2>/dev/null || true
+              echo
+              cat fleet/skills/verification.md 2>/dev/null || true
+              if grep -riqE "ui|dashboard|web|interface|html|page" /tmp/spec.md "$PROJ/ROADMAP.md" 2>/dev/null; then
+                echo
+                echo "## Ce projet a une face visible — étalon design"
+                echo
+                cat fleet/skills/frontend-design.md 2>/dev/null || true
+              fi
+              echo
+              echo "## Contraintes"
+              echo "- Ne modifie rien en dehors de $PROJ/."
+              echo "- Une fois les éditions faites, coche la tranche [x] dans $PROJ/ROADMAP.md (édite-le aussi)."
+            } > /tmp/brief-tranche.md
+          }
+          AIDER="aider --model openai/glm-5.3-flash:cloud --openai-api-base https://ollama.com/v1 \
             --weak-model openai/glm-5.3-flash:cloud --edit-format udiff \
             --yes-always --no-auto-lint --no-check-update \
             --no-attribute-author --no-attribute-committer \
             --no-attribute-commit-message-author --no-attribute-commit-message-committer \
-            --test-cmd "./verify.sh $AXE/$PROJDIR" --auto-test \
-            --message-file /tmp/brief-tranche.md
-          CHANGED=0
-          if [ -n "$(git log HEAD --not "$BEFORE")" ] || [ -n "$(git status --porcelain)" ]; then CHANGED=1; fi
-          if [ "$CHANGED" != "1" ]; then
-            echo ">>> session sans aucune édition appliquée — échec, retentée au prochain cycle."
+            --test-cmd ./verify.sh $AXE/$PROJDIR --auto-test"
+          START=$SECONDS
+          DELIVERED=0
+          GREEN_SHA=$(git rev-parse HEAD)
+          for i in 1 2 3; do
+            TR=$(python3 fleet/next-tranche.py "$PROJ/ROADMAP.md")
+            [ -z "$TR" ] && break
+            [ $((SECONDS - START)) -gt 1200 ] && { echo ">>> budget temps du run atteint."; break; }
+            echo "=== tranche ${TR#*] } (itération $i) ==="
+            build_brief "$FEEDBACK" "Tu es le CODEUR du chantier. Implémente MAINTENANT la tranche «${TR#*] }» dans $PROJ/ en produisant des blocs udiff SEARCH/REPLACE complets dans cette réponse — pas de plan, pas d'attente : l'arbitre ./verify.sh est exécuté automatiquement après tes éditions, tu n'as rien à me demander. Lis d'abord $PROJ/ROADMAP.md pour le contexte."
+            BEFORE=$(git rev-parse HEAD)
+            $AIDER --message-file /tmp/brief-tranche.md
+            CHANGED=0
+            if [ -n "$(git log HEAD --not "$BEFORE")" ] || [ -n "$(git status --porcelain)" ]; then CHANGED=1; fi
+            if [ "$CHANGED" = "1" ] && ./verify.sh "$AXE/$PROJDIR" > /tmp/verify-tranche.txt 2>&1; then
+              GREEN_SHA=$(git rev-parse HEAD); DELIVERED=$((DELIVERED+1)); FEEDBACK=""
+              echo ">>> tranche livrée : ${TR#*] }"
+              continue
+            fi
+            echo ">>> première passe insuffisante (éditions: $CHANGED) — relance ciblée…"
+            build_brief "" "L'arbitre ./verify.sh est ROUGE ou tes éditions ne se sont pas appliquées. Sortie de l'arbitre : $(tail -4 /tmp/verify-tranche.txt 2>/dev/null | tr '\n' ' '). Corrige IMMÉDIATEMENT avec des blocs udiff SEARCH/REPLACE complets et applicables, les vraies causes (ne bidouille pas les tests). Périmètre : $PROJ/ uniquement. Si la tranche est déjà cochée [x], garde-la cochée."
+            BEFORE2=$(git rev-parse HEAD)
+            $AIDER --message-file /tmp/brief-tranche.md
+            CHANGED2=0
+            if [ -n "$(git log HEAD --not "$BEFORE2")" ] || [ -n "$(git status --porcelain)" ]; then CHANGED2=1; fi
+            if [ "$CHANGED2" = "1" ] && ./verify.sh "$AXE/$PROJDIR" > /dev/null 2>&1; then
+              GREEN_SHA=$(git rev-parse HEAD); DELIVERED=$((DELIVERED+1)); FEEDBACK=""
+              echo ">>> tranche livrée après relance : ${TR#*] }"
+              continue
+            fi
+            echo ">>> tranche «${TR#*] }» en échec — rollback au dernier état vert."
+            git reset -q --hard "$GREEN_SHA"
+            git clean -qfd "$PROJ" 2>/dev/null || true
+            break
+          done
+          echo "DELIVERED=$DELIVERED" >> "$GITHUB_ENV"
+          if [ "$DELIVERED" -gt 0 ]; then
+            git add -A
+            git commit -qm "chantier $PROJDIR : $DELIVERED tranche(s) (batch résident)" --allow-empty || true
+          else
+            echo ">>> aucune tranche livrée ce run."
             exit 1
           fi
-          ./verify.sh "$AXE/$PROJDIR"
 
       - name: PR (création ou mise à jour)
         if: steps.state.outputs.active == '1' && env.FINISHED != '1'
@@ -190,6 +224,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           NUM: ${{ steps.state.outputs.num }}
+          DELIVERED: ${{ env.DELIVERED }}
         run: |
           git add -A
           git commit -m "chantier $PROJDIR : ${TRANCHE#*] }" --allow-empty || true
@@ -200,6 +235,6 @@ jobs:
               --title "[chantier] $PROJDIR — tranches consécutives (issue #$NUM)" \
               --body "Boucle chantier résidente (VM GitHub) : tranches vers la définition de shippé de l'issue #$NUM. Auto-merge si CI verte + revue kimi GO."
           else
-            gh pr comment "$PR" --body "tranche avancée : ${TRANCHE#*] }"
+            gh pr comment "$PR" --body "batch résident : $DELIVERED tranche(s) livrée(s) ce run."
           fi
           echo ">>> cycle terminé — CI + revue kimi + auto-merge prennent le relais."

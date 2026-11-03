@@ -13,7 +13,7 @@ out = subprocess.run(
 ).stdout
 for issue in json.loads(out):
     labs = [l["name"] for l in issue["labels"]]
-    if any(l.startswith("axe/") for l in labs) and "shipped" not in labs:
+    if any(l.startswith("axe/") for l in labs) and "shipped" not in labs and "ship/pr" not in labs:
         axe = next(l[4:] for l in labs if l.startswith("axe/"))
         print(f"{issue['number']}|{axe}|{issue['title']}")
         break
