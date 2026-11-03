@@ -9,6 +9,15 @@ REPO="/Users/mac/Projects/factory"
 DAY=$(date +%F)
 DIGEST="$REPO/.veille/$DAY.md"
 
+# Auth pi : le cron n'hérite pas de .zshrc — provider + clé Ollama explicitement résolus
+# depuis le trousseau (le cron du 2026-11-03 08:30 a échoué en silence pour cette raison).
+export PI_PROVIDER="${PI_PROVIDER:-ollama}"
+if [ -z "${OLLAMA_API_KEY:-}" ]; then
+  KEY=$(security find-generic-password -s pi-ollama -a "$USER" -w 2>/dev/null \
+     || security find-generic-password -s plandex-ollama -a "$USER" -w 2>/dev/null || true)
+  [ -n "$KEY" ] && export OLLAMA_API_KEY="$KEY"
+fi
+
 log() { echo "[$(date '+%F %T')] $*"; }
 
 # 0) Idempotence : une idée par jour, pas plus
