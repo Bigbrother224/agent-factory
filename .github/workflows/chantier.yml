@@ -103,12 +103,14 @@ jobs:
         run: |
           [ -f "$PROJ/ROADMAP.md" ] && exit 0
           gh issue view "$NUM" --json body -q .body > /tmp/spec.md
+          DESIGN=""
+          grep -riqE "ui|dashboard|web|interface|html|page" /tmp/spec.md && DESIGN=" Le projet a une face visible : prévois une tranche « design » qui applique l'étalon fleet/skills/frontend-design.md (identité ancrée dans le sujet, interdits du généré listés dedans)."
           aider --model openai/glm-5.3-flash:cloud --openai-api-base https://ollama.com/v1 \
             --weak-model openai/glm-5.3-flash:cloud --edit-format udiff \
             --yes-always --no-auto-lint --no-check-update \
             --no-attribute-author --no-attribute-committer \
             --no-attribute-commit-message-author --no-attribute-commit-message-committer \
-            --message "Tu es le PLANIFICATEUR du chantier. Lis /tmp/spec.md (spec de l'issue #$NUM) et le code existant dans $PROJ/. Crée $PROJ/ROADMAP.md : le chemin du MVP actuel vers la définition de « shippé » de l'issue, en 5-8 tranches AUTONOMES. Format exact par tranche : « - [ ] T<n> : <objectif précis> — fichiers: <attendus> — vérif: <commande>. » Dernière tranche = « T<n> : définition de shippé atteinte ». Commence par « # Roadmap — <projet> » + tableau des tranches. Ne crée RIEN d'autre."
+            --message "Tu es le PLANIFICATEUR du chantier. Lis /tmp/spec.md (spec de l'issue #$NUM) et le code existant dans $PROJ/. Crée $PROJ/ROADMAP.md : le chemin du MVP actuel vers la définition de « shippé » de l'issue, en 5-8 tranches AUTONOMES. Format exact par tranche : « - [ ] T<n> : <objectif précis> — fichiers: <attendus> — vérif: <commande>. » Dernière tranche = « T<n> : définition de shippé atteinte ». Commence par « # Roadmap — <projet> » + tableau des tranches. Ne crée RIEN d'autre.$DESIGN"
 
       - name: Prochaine tranche
         if: steps.state.outputs.active == '1'
@@ -126,7 +128,7 @@ jobs:
           fi
           echo "TRANCHE=$TRANCHE" >> "$GITHUB_ENV"
 
-      - name: Tranche (session code, avec feedback kimi)
+      - name: Tranche (session code, avec feedback kimi + skills)
         if: steps.state.outputs.active == '1' && env.FINISHED != '1'
         env:
           GH_TOKEN: ${{ github.token }}
@@ -142,13 +144,38 @@ jobs:
             [ -s /tmp/revue.md ] && FEEDBACK="AVANT de coder : lis /tmp/revue.md — la dernière revue kimi. Corrige en priorité les points BLOQUANT/SÉRIEUX qui concernent $PROJ/. "
           fi
           BEFORE=$(git rev-parse HEAD)
+          # Brief complet (mission + discipline skills + contraintes) : les sessions Aider
+          # ne découvrent pas les skills pi — elles les reçoivent dans le brief.
+          gh issue view "$NUM" --json body -q .body > /tmp/spec.md
+          {
+            printf '%s' "$FEEDBACK"
+            echo "Tu es le CODEUR du chantier. Implémente MAINTENANT la tranche «${TRANCHE#*] }» dans $PROJ/ en produisant des blocs udiff SEARCH/REPLACE complets dans cette réponse — pas de plan, pas d'attente : l'arbitre ./verify.sh est exécuté automatiquement après tes éditions, tu n'as rien à me demander. Lis d'abord $PROJ/ROADMAP.md pour le contexte."
+            echo
+            echo "## Discipline du codeur (skills de l'usine — NON NÉGOCIABLES)"
+            echo
+            cat fleet/skills/tdd.md 2>/dev/null || true
+            echo
+            cat fleet/skills/debugging.md 2>/dev/null || true
+            echo
+            cat fleet/skills/verification.md 2>/dev/null || true
+            if grep -riqE "ui|dashboard|web|interface|html|page" /tmp/spec.md "$PROJ/ROADMAP.md" 2>/dev/null; then
+              echo
+              echo "## Ce projet a une face visible — étalon design"
+              echo
+              cat fleet/skills/frontend-design.md 2>/dev/null || true
+            fi
+            echo
+            echo "## Contraintes"
+            echo "- Ne modifie rien en dehors de $PROJ/."
+            echo "- Une fois les éditions faites, coche la tranche [x] dans $PROJ/ROADMAP.md (édite-le aussi)."
+          } > /tmp/brief-tranche.md
           aider --model openai/glm-5.3-flash:cloud --openai-api-base https://ollama.com/v1 \
             --weak-model openai/glm-5.3-flash:cloud --edit-format udiff \
             --yes-always --no-auto-lint --no-check-update \
             --no-attribute-author --no-attribute-committer \
             --no-attribute-commit-message-author --no-attribute-commit-message-committer \
             --test-cmd "./verify.sh $AXE/$PROJDIR" --auto-test \
-            --message "${FEEDBACK}Tu es le CODEUR du chantier. Implémente MAINTENANT la tranche «${TRANCHE#*] }» dans $PROJ/ en produisant des blocs udiff SEARCH/REPLACE complets dans cette réponse — pas de plan, pas d'attente : l'arbitre ./verify.sh est exécuté automatiquement après tes éditions, tu n'as rien à me demander. Lis d'abord $PROJ/ROADMAP.md pour le contexte. Contraintes : ne modifie rien en dehors de $PROJ/ ; une fois les éditions faites, coche la tranche [x] dans $PROJ/ROADMAP.md (édite-le aussi)."
+            --message-file /tmp/brief-tranche.md
           CHANGED=0
           if [ -n "$(git log HEAD --not "$BEFORE")" ] || [ -n "$(git status --porcelain)" ]; then CHANGED=1; fi
           if [ "$CHANGED" != "1" ]; then
