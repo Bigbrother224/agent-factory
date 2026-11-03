@@ -21,7 +21,7 @@ import sys
 def parse_repo(url):
     """owner/repo depuis une remote https ou ssh, sans corruption d'URL."""
     url = (url or "").strip().removesuffix(".git")
-    m = re.match(r"(?:https?://[^/]+/|git@[^/]+[:/])(.+?/.+)$", url)
+    m = re.match(r"(?:https?://[^/]+/|ssh://git@[^/]+/|git@[^/]+[:/])(.+?/.+)$", url)
     return m.group(1) if m else url
 
 
