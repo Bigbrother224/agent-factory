@@ -3,6 +3,7 @@ package web
 import (
 	"encoding/json"
 	"errors"
+	"html"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -44,6 +45,17 @@ func postForm(t *testing.T, h http.Handler, path, form string) *httptest.Respons
 	return rec
 }
 
+// plainHTML approximates what a browser displays for the page: character
+// entities decoded, typographic spaces folded to plain spaces. The tests
+// assert the language the household actually sees, not the escaping bytes.
+func plainHTML(s string) string {
+	s = html.UnescapeString(s)
+	s = strings.ReplaceAll(s, "\u00a0", " ") // no-break space
+	s = strings.ReplaceAll(s, "\u202f", " ") // narrow no-break space
+	s = strings.ReplaceAll(s, "\u2009", " ") // thin space
+	return s
+}
+
 func TestDashboardShowsTVWithCounterInPlainLanguage(t *testing.T) {
 	s := testServer(t, []Host{
 		{IP: "192.168.1.50", MAC: "b8:27:eb:12:34:56"},
@@ -57,7 +69,7 @@ func TestDashboardShowsTVWithCounterInPlainLanguage(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("GET / : got %d, want 200", rec.Code)
 	}
-	body := rec.Body.String()
+	body := plainHTML(rec.Body.String())
 	for _, want := range []string{
 		"192.168.1.50",
 		"b8:27:eb:12:34:56",
@@ -71,7 +83,7 @@ func TestDashboardShowsTVWithCounterInPlainLanguage(t *testing.T) {
 		"Aucune tentative de tracking bloquée aujourd'hui",
 		"1 TV sous protection",
 	} {
-		if !strings.Contains(body, want) {
+		if !strings.Contains(body, plainHTML(want)) {
 			t.Errorf("dashboard: missing %q", want)
 		}
 	}
