@@ -107,8 +107,8 @@ jobs:
           gh issue view "$NUM" --json body -q .body > /tmp/spec.md
           DESIGN=""
           grep -riqE "ui|dashboard|web|interface|html|page" /tmp/spec.md && DESIGN=" Le projet a une face visible : prévois une tranche « design » qui applique l'étalon fleet/skills/frontend-design.md (identité ancrée dans le sujet, interdits du généré listés dedans)."
-          aider --model openai/glm-5.3-flash:cloud --openai-api-base https://ollama.com/v1 \
-            --weak-model openai/glm-5.3-flash:cloud --edit-format udiff \
+          aider --model openai/deepseek-v4.1-flash:cloud --openai-api-base https://ollama.com/v1 \
+            --weak-model openai/deepseek-v4.1-flash:cloud --edit-format udiff \
             --yes-always --no-auto-lint --no-check-update \
             --no-attribute-author --no-attribute-committer \
             --no-attribute-commit-message-author --no-attribute-commit-message-committer \
@@ -172,8 +172,8 @@ jobs:
               echo "- Une fois les éditions faites, coche la tranche [x] dans $PROJ/ROADMAP.md (édite-le aussi)."
             } > /tmp/brief-tranche.md
           }
-          AIDER="aider --model openai/glm-5.3-flash:cloud --openai-api-base https://ollama.com/v1 \
-            --weak-model openai/glm-5.3-flash:cloud --edit-format udiff \
+          AIDER="aider --model openai/deepseek-v4.1-flash:cloud --openai-api-base https://ollama.com/v1 \
+            --weak-model openai/deepseek-v4.1-flash:cloud --edit-format udiff \
             --yes-always --no-auto-lint --no-check-update \
             --no-attribute-author --no-attribute-committer \
             --no-attribute-commit-message-author --no-attribute-commit-message-committer \

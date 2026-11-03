@@ -39,7 +39,7 @@ pendant que tu ne regardes pas.**
 | Groupe | Agent | Quand |
 |---|---|---|
 | **A — Scouts** | veille HN+GitHub (digest sourcé) → idée alignée sur UN axe | 1×/jour, cron 08:30 UTC |
-| **B — Bâtisseurs** | Aider (glm-5.3-flash) construit le projet dans le runner GitHub | à chaque idée approuvée |
+| **B — Bâtisseurs** | Aider (deepseek-v4.1-flash) construit le projet dans le runner GitHub | à chaque idée approuvée |
 | **C — Vérificateurs** | arbitre CI (`verify.sh`) + réviseur lecture-seule (kimi) | chaque PR |
 
 **Les 2 portes humaines :**

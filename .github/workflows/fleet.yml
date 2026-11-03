@@ -102,8 +102,8 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OLLAMA_API_KEY }}
         run: |
           if [ "${DUPLICATE:-0}" = "1" ]; then echo ">>> Doublon ignoré (ship/pr déjà posé)."; exit 0; fi
-          AIDER="aider --model openai/glm-5.3-flash:cloud --openai-api-base https://ollama.com/v1 \
-            --weak-model openai/glm-5.3-flash:cloud --edit-format udiff \
+          AIDER="aider --model openai/deepseek-v4.1-flash:cloud --openai-api-base https://ollama.com/v1 \
+            --weak-model openai/deepseek-v4.1-flash:cloud --edit-format udiff \
             --yes-always --no-auto-lint --no-check-update \
             --no-attribute-author --no-attribute-committer \
             --no-attribute-commit-message-author --no-attribute-commit-message-committer"
@@ -138,7 +138,7 @@ jobs:
           git checkout -b "fleet/$SLUG"
           git push -u origin "fleet/$SLUG" --force
           {
-            echo "Livrable de la flotte B (Aider × glm-5.3-flash, plan Ollama) pour l'issue #$ISSUE_NUMBER."
+            echo "Livrable de la flotte B (Aider × deepseek-v4.1-flash, plan Ollama) pour l'issue #$ISSUE_NUMBER."
             echo
             echo "Sortie finale de l'arbitre \`./verify.sh $AXE/$SLUG\` :"
             echo '```'

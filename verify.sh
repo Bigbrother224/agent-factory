@@ -83,11 +83,13 @@ done
 
 printf '\n'
 
-# Garde budgétaire (ordre humain 2026-11-03, reconfirmé 14:35) : le flagship
-# glm-5.3:cloud est INTERDIT dans l'usine — flash uniquement. La qualité passe
-# par la boucle (scène E2E + relances + barème kimi), jamais par le modèle.
-if grep -rq "glm-5.3:cloud" "$REPO_ROOT/.github/workflows" 2>/dev/null; then
-  fail "budget : glm-5.3:cloud (flagship) détecté dans .github/workflows — interdit, glm-5.3-flash:cloud uniquement"
+# Garde budgétaire (ordre humain 2026-11-03, reconfirmé et ÉTENDU le même
+# jour : GLM est INTERDIT — tout modèle glm-*, quelque soit le tier — l'abonnement
+# a failli y passer. Remplacement : deepseek-v4.1-flash (et deepseek-v4-pro:0813
+# pour les tâches difficiles). La qualité passe par la boucle (scène E2E +
+# relances + barème kimi), jamais par le modèle.
+if grep -rqi 'glm-' "$REPO_ROOT/.github/workflows" 2>/dev/null; then
+  fail "budget : modèle GLM détecté dans .github/workflows — INTERDIT (abonnement presque épuisé), deepseek-v4.1-flash:cloud uniquement"
 fi
 
 if [ "$FAILURES" -gt 0 ]; then
