@@ -187,7 +187,7 @@ jobs:
             BEFORE=$(git rev-parse HEAD)
             $AIDER --message-file /tmp/brief-tranche.md
             CHANGED=0
-            if [ -n "$(git log HEAD --not "$BEFORE")" ] || [ -n "$(git status --porcelain)" ]; then CHANGED=1; fi
+            if [ -n "$(git log HEAD --not "$BEFORE" -- "$PROJ")" ] || [ -n "$(git status --porcelain -- "$PROJ")" ]; then CHANGED=1; fi
             if [ "$CHANGED" = "1" ] && ./verify.sh "$AXE/$PROJDIR" > /tmp/verify-tranche.txt 2>&1; then
               GREEN_SHA=$(git rev-parse HEAD); DELIVERED=$((DELIVERED+1)); FEEDBACK=""
               echo ">>> tranche livrée : ${TR#*] }"
@@ -198,7 +198,7 @@ jobs:
             BEFORE2=$(git rev-parse HEAD)
             $AIDER --message-file /tmp/brief-tranche.md
             CHANGED2=0
-            if [ -n "$(git log HEAD --not "$BEFORE2")" ] || [ -n "$(git status --porcelain)" ]; then CHANGED2=1; fi
+            if [ -n "$(git log HEAD --not "$BEFORE2" -- "$PROJ")" ] || [ -n "$(git status --porcelain -- "$PROJ")" ]; then CHANGED2=1; fi
             if [ "$CHANGED2" = "1" ] && ./verify.sh "$AXE/$PROJDIR" > /dev/null 2>&1; then
               GREEN_SHA=$(git rev-parse HEAD); DELIVERED=$((DELIVERED+1)); FEEDBACK=""
               echo ">>> tranche livrée après relance : ${TR#*] }"
@@ -211,7 +211,7 @@ jobs:
           done
           echo "DELIVERED=$DELIVERED" >> "$GITHUB_ENV"
           if [ "$DELIVERED" -gt 0 ]; then
-            git add -A
+            git add -A "$PROJ"
             git commit -qm "chantier $PROJDIR : $DELIVERED tranche(s) (batch résident)" --allow-empty || true
           else
             echo ">>> aucune tranche livrée ce run."
