@@ -7,8 +7,8 @@ import sys
 import urllib.request
 
 DIFF = open(sys.argv[1], encoding="utf-8").read()
-if len(DIFF) > 60000:
-    DIFF = DIFF[:60000] + "\n[… diff tronqué …]"
+if len(DIFF) > 40000:
+    DIFF = DIFF[:40000] + "\n[… diff tronqué — taille plafonnée pour tenir dans le budget de tokens du réviseur …]"
 
 PROMPT = f"""Tu es le groupe C (Vérificateurs) de l'usine agent-factory : agent de revue LECTURE SEULE.
 Relis uniquement le diff ci-dessous. Réponds en français, format markdown strict :
@@ -38,7 +38,7 @@ req = urllib.request.Request(
         {
             "model": "kimi-k2.7-code:cloud",
             "messages": [{"role": "user", "content": PROMPT}],
-            "max_tokens": 16000,
+            "max_tokens": 32768,
         }
     ).encode(),
     headers={
