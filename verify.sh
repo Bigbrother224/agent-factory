@@ -89,7 +89,7 @@ printf '\n'
 # pour les tâches difficiles). La qualité passe par la boucle (scène E2E +
 # relances + barème kimi), jamais par le modèle.
 if grep -rqi 'glm-' "$REPO_ROOT/.github/workflows" 2>/dev/null; then
-  fail "budget : modèle GLM détecté dans .github/workflows — INTERDIT (abonnement presque épuisé), deepseek-v4.1-flash:cloud uniquement"
+  fail "budget : modèle GLM détecté dans .github/workflows — INTERDIT (abonnement presque épuisé), deepseek uniquement"
 fi
 
 if [ "$FAILURES" -gt 0 ]; then

@@ -13,7 +13,7 @@ jobs:
     # Groupe C — réviseur lecture seule : un 2e modèle (kimi-k2.7-code) relit le diff
     # et publie sa revue directement sur la PR. Ne décide rien : porte 2 = humain.
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
         with:
@@ -24,9 +24,18 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           OLLAMA_KEY: ${{ secrets.OLLAMA_API_KEY }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
         run: |
-          git diff "$BASE_SHA"...HEAD > /tmp/diff.txt
+          # Diff PUR de la PR : merge-base du main courant et du head → head. Ne
+          # JAMAIS différer contre BASE_SHA figé à l'ouverture de la PR + le ref
+          # de merge : ce mélange réinclut les commits atelier du main comme s'ils
+          # appartenaient au projet revu (cause des NO-GO en boucle du 3 nov :
+          # l'outillage atelier relu 6+ fois comme diff de teleblock).
+          git fetch origin "$BASE_REF"
+          MERGE_BASE=$(git merge-base "origin/$BASE_REF" "$HEAD_SHA")
+          git diff "$MERGE_BASE"..."$HEAD_SHA" > /tmp/diff.txt
+          echo "diff PR : $(grep -c '^diff --git' /tmp/diff.txt) fichiers, base $MERGE_BASE → head $HEAD_SHA"
           python3 fleet/revue.py /tmp/diff.txt > /tmp/revue.md
           gh pr comment "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file /tmp/revue.md
           echo ">>> Revue publiée sur la PR #$PR_NUMBER."
