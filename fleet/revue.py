@@ -51,25 +51,39 @@ Une ligne par dimension, format `Efficacité : N/5 — une phrase de justificati
 {DIFF}
 ```"""
 
-req = urllib.request.Request(
-    "https://ollama.com/v1/chat/completions",
-    data=json.dumps(
-        {
-            "model": "kimi-k2.7-code:cloud",
-            "messages": [{"role": "user", "content": PROMPT}],
-            "max_tokens": 16000,
-        }
-    ).encode(),
-    headers={
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {os.environ['OLLAMA_KEY']}",
-    },
-)
+def call(diff_text: str) -> str:
+    """Un appel API ; PROMPT est régénéré avec diff_text. Retourne le contenu ou vide."""
+    prompt = PROMPT.replace(DIFF, diff_text)
+    r = urllib.request.Request(
+        "https://ollama.com/v1/chat/completions",
+        data=json.dumps(
+            {
+                "model": "kimi-k2.7-code:cloud",
+                "messages": [{"role": "user", "content": prompt}],
+                "max_tokens": 16000,
+            }
+        ).encode(),
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {os.environ['OLLAMA_KEY']}",
+        },
+    )
+    with urllib.request.urlopen(r, timeout=300) as resp:
+        return (json.load(resp)["choices"][0]["message"]["content"] or "").strip()
+
+
+out = ""
 try:
-    with urllib.request.urlopen(req, timeout=300) as r:
-        out = json.load(r)["choices"][0]["message"]["content"]
+    out = call(DIFF)
 except Exception as e:  # noqa: BLE001
     out = f"## Revue du groupe C\n**PANNE du réviseur** (erreur API) : {e}\nVerdict par défaut : **NO-GO** à trancher par l'humain."
-if not out or not out.strip():
-    out = "## Revue du groupe C\n**PANNE du réviseur** : réponse du modèle vide (budget de tokens épuisé par le raisonnement ?). Verdict par défaut : **NO-GO** à trancher par l'humain."
-print(out.strip())
+# Réponse vide = budget de tokens mangé par le raisonnement : UNE relance,
+# diff tronqué à 25k caractères (le gros diff est la cause la plus fréquente).
+if not out and len(DIFF) > 25000:
+    try:
+        out = call(DIFF[:25000] + "\n[… diff tronqué à 25k — relance après réponse vide …]\n")
+    except Exception:  # noqa: BLE001
+        pass
+if not out:
+    out = "## Revue du groupe C\n**PANNE du réviseur** : réponse du modèle vide (2 tentatives, diff complet puis tronqué). Verdict par défaut : **NO-GO** à trancher par l'humain."
+print(out)
