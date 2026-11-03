@@ -1,6 +1,18 @@
 # État — agent-factory (usine à projets, 3 groupes d'agents)
 
-Dernière mise à jour : 2026-11-03
+Dernière mise à jour : 2026-11-03 (14:05)
+
+## Fait — tour 12 (2026-11-03, dashboard : la revue NO-GO enfin lisible)
+Problème remonté par l'humain : impossible d'ouvrir le NO-GO de la PR #11, infos incomplètes. Cause racine × 2 :
+- **La revue n'apparaissait même pas sur la carte TeleBlock** : le client cherchait la PR par slug exact (`teleblock-pare-feu`, 3 premiers mots du titre) alors que la branche est `chantier/teleblock` → CI, verdict et roadmap invisibles sur la carte. Correspondance tolérante ajoutée (même logique que la recherche de roadmap côté serveur).
+- **Aucun moyen de lire la revue** : seul un extrait tronqué de 100 car. était affiché. Maintenant : **modale revue complète** (verdict + compte de gravités, 7 problèmes avec pastilles BLOQUANT/SÉRIEUX/MINEUR, 6 notes qualité /5 avec barres, bilan, lien direct vers le commentaire GitHub) — ouverte par la puce « revue NO-GO », la ligne résumé de la carte (« Revue kimi 2 h : NO-GO · 1 bloquant, 4 sérieux… ») ou le bouton Ouvrir du panneau revues. Escape/clic hors modale pour fermer.
+- Bonus : stat « digest de veille » qui affichait toujours « aucun » (s.lastDigest jamais rempli) → date réelle du dernier `ideas/YYYY-MM-DD-*.md` (2026-11-02).
+- Vérifié : 14/14 tests de rendu en réel (DOM stub + état live du serveur) ; skill design respecté (focus-visible, pas de tiret cadratin visible, échelle z documentée toast=30 / modale=20).
+
+## Fait — tour 11 (2026-11-03, reprise après fermeture des 3 fenêtres agents)
+- **Aucun impact** : l'usine tourne à 100% sur VM GitHub depuis le tour 9 — les fenêtres Mac fermées n'ont rien interrompu.
+- **Dashboard relancé** (`./dashboard/start.sh`, http://localhost:7777 → 200) — c'était la seule dépendance locale tombée.
+- **État du bus au 13:29** : PR #11 (chantier/teleblock) vivante, MERGEABLE ; dernière revue kimi = **NO-GO** (retours injectés au prochain cycle résident, qui tourne en batch toutes les 6 h) ; 2 runs verify/revue-c `action_required` (12:59) seront auto-déverrouillés par le cron auto-merge (≤20 min). PRs atelier #12 mergée, #10 fermée (contenus coulés sur main au tour 10).
 
 ## Vision (restructurée 2026-11-03)
 - **Le portfolio est le but** : un GitHub articulé sur 3 axes — **ai-automation-and-systems**, **embedded-intelligence**, **experimental-computing**. L'usine (3 groupes d'agents : scouts / Aider / CI+revue kimi) ne construit QUE des projets alignés sur un axe, shippables en MVP démontrable, avec README anglais niveau portfolio.
@@ -59,11 +71,18 @@ Dernière mise à jour : 2026-11-03
 - Coulée ce tour (PRs #10/#12 retirées du bus, contenus atterrés directement) : `fleet/BAREME.md` joint au brief de la flotte + craft node/go/python injecté selon le langage de la spec ; garde anti double-run + relances CI auto (max 3, garde-fou périmètre) + hygiène de labels dans fleet.yml ; réouverture de PR fermée au !fix ; règle 3 (min 8 tests) arbitrée par verify.sh ; revue kimi : barème intégré, notes par dimension, relance auto 25k sur réponse vide, nuance PRs d'infra ; **correcteur C3** (revue NO-GO d'une PR projet → session Aider correctrice, max 2 cycles → revue/bloquee → porte 2).
 
 ## Prochaine étape
-Toi : recharger http://localhost:7777 (design refondu), puis trancher la PR #10 (couche qualité, kimi NO-GO : lire la revue sur la carte ou `gh pr view 10 -R Bigbrother224/agent-factory`), et demain valider le premier cycle scout complet sous les 3 axes.
+Toi : recharger http://localhost:7777, cliquer sur la ligne « Revue kimi » de la carte TeleBlock pour lire le NO-GO en entier, puis décider porte 2 (merge) ou laisser le résident (batch 6 h) corriger et re-soumettre. Toujours en attente : trancher public/privé du repo (portfolio visible des recruteurs).
 
 ## Règles humaines verrouillées (2026-11-03)
 - **glm-5.3:cloud (flagship) INTERDIT partout** — uniquement `glm-5.3-flash:cloud` (abonnement). Verrouillé dans verify.sh : toute PR l'introduisant est refusée par la CI.
 - Le dashboard est l'outil personnel de l'humain — pas d'axes d'amélioration imposés par l'usine.
+
+## Diagnostic « autonomie totale » (2026-11-03, 13:45 — réponse à la frustration humaine)
+L'objectif « développer non-stop jusqu'au résultat parfait sans harnessing » est freiné par 3 murs mesurés :
+1. **Cadence** : 7 runs résident aujourd'hui, 3 réussis, cadence 6h (quota privé 2000 min/mois) → 3-4 itérations efficaces/jour.
+2. **Plafond codeur** : glm-5.3-flash nécessite 2-3 cycles NO-GO pour converger (kimi plus exigeant que le codeur n'est bon) ; règle flagship-interdit verrouille ce plafond.
+3. **Mur physique** : « shippé » teleblock = validation sur Samsung/LG réelles (T7-T8) — aucune VM ne peut le faire ; le dernier kilomètre est hardware humain.
+Décisions proposées : (a) repo public → minutes illimitées, 10-20× ; (b) flagship autorisé pour le codeur résident sur tranches dures uniquement ; (c) redéfinir ship = image Pi flashable + guide de validation (l'humain installe, il ne harness pas).
 
 ## Décisions en attente
 - ~~Dashboard : architecture~~ **Tranché (tour 8)** : lit GitHub en direct via `gh` (zéro fichier d'état parallèle), le composeur passe par les commentaires d'issue (`!fix` = instructions exécutables).
