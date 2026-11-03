@@ -52,6 +52,12 @@ Dernière mise à jour : 2026-11-03
 - Dashboard : refonte de l'agent résident gardée ; bugfix porté (PRs `chantier/` invisibles sur les fiches).
 - **Règle de gouvernance (humain, ce tour)** : GitHub = la PRODUCTION uniquement (idées des 3 axes, projets, notifications). Le développement de l'usine elle-même = **atelier** (label `atelier`), géré hors production : PRs atelier auto-mergées (CI verte + GO), dashboard les sépare.
 
+## Fait — tour 10 (2026-11-03, 2e agent — SÉPARATION ATELIER / PRODUCTION, dépôt direct sur main)
+**Règle de gouvernance posée par l'humain : GitHub = la PRODUCTION uniquement** (idées des 3 axes, projets, leurs notifications). Le développement de l'usine elle-même = **atelier**, géré hors bus :
+- Label **`atelier`** créé : toute PR/issue d'outillage le porte ; **auto-merge** étendu (CI verte + revue GO = squash, comme les tranches chantier) — l'outillage ne séjourne plus jamais sur le bus. Dépôts directs sur main pour l'atelier : validés localement + CI après-coup.
+- **Dashboard** : les éléments atelier sont exclus des vues production (chaînes, ligne de process) ; une ligne discrète en pied de page les référence.
+- Coulée ce tour (PRs #10/#12 retirées du bus, contenus atterrés directement) : `fleet/BAREME.md` joint au brief de la flotte + craft node/go/python injecté selon le langage de la spec ; garde anti double-run + relances CI auto (max 3, garde-fou périmètre) + hygiène de labels dans fleet.yml ; réouverture de PR fermée au !fix ; règle 3 (min 8 tests) arbitrée par verify.sh ; revue kimi : barème intégré, notes par dimension, relance auto 25k sur réponse vide, nuance PRs d'infra ; **correcteur C3** (revue NO-GO d'une PR projet → session Aider correctrice, max 2 cycles → revue/bloquee → porte 2).
+
 ## Prochaine étape
 Toi : recharger http://localhost:7777 (design refondu), puis trancher la PR #10 (couche qualité, kimi NO-GO : lire la revue sur la carte ou `gh pr view 10 -R Bigbrother224/agent-factory`), et demain valider le premier cycle scout complet sous les 3 axes.
 

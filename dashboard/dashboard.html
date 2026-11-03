@@ -190,6 +190,10 @@ button.mini { padding:5px 10px; font-size:11.5px; }
 
 footer { padding:26px 20px 0; color:var(--faint); font-size:11.5px; text-align:center; }
 
+/* atelier — développement de l'usine, séparé de la production */
+.atelier-note { margin:18px 20px 0; padding:10px 14px; border:1px dashed var(--border); color:var(--faint); font-size:12px; }
+.atelier-note:empty { display:none; }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation:none !important; transition:none !important; }
 }
@@ -214,6 +218,7 @@ footer { padding:26px 20px 0; color:var(--faint); font-size:11.5px; text-align:c
 <footer>GitHub est le bus unique : les agents ne lisent que le repo. Le composeur publie un commentaire d'issue, « !fix » déclenche la flotte.</footer>
 
 <div id="toast" role="status" aria-live="polite"></div>
+<div id="atelier-note" class="atelier-note"></div>
 
 <script>
 const REPO='Bigbrother224/agent-factory';
@@ -390,7 +395,9 @@ function render(s){
   ld.classList.remove('off');
   document.getElementById('livetext').textContent='live, maj '+new Date(s.when).toLocaleTimeString('fr-FR');
 
-  const issues=(s.issues||[]).filter(i=>i.labels&&i.labels.length&&!(i.labels||[]).some(l=>l.name==='documentation'));
+  const all=(s.issues||[]).filter(i=>i.labels&&i.labels.length);
+  const atelier=all.filter(i=>(i.labels||[]).some(l=>l.name==='atelier'));
+  const issues=all.filter(i=>!(i.labels||[]).some(l=>l.name==='atelier'||l.name==='documentation'));
   const prs=s.prs||[];
 
   const n1=issues.filter(i=>i.state==='OPEN'&&hasL(i,'idea/draft')&&!hasL(i,'idea/approved')&&!hasL(i,'idea/rejected')).length;
@@ -438,6 +445,7 @@ function render(s){
   document.getElementById('panels').innerHTML=
     `<div class="panel"><h3>Runs des agents</h3><table><thead><tr><th>Workflow</th><th>Déclencheur</th><th>Âge</th><th>Statut</th></tr></thead><tbody>${runsHtml}</tbody></table></div>`+
     `<div class="panel"><h3>Revues du groupe C</h3><table><thead><tr><th>PR</th><th>Verdict</th><th>Extrait</th></tr></thead><tbody>${revHtml}</tbody></table></div>`;
+  renderAtelier(atelier);
 }
 function skeletons(){
   document.getElementById('board').innerHTML=[0,1,2].map(()=>`<section>`+
@@ -453,6 +461,12 @@ async function refresh(){
     ld.classList.add('off');
     document.getElementById('livetext').textContent='hors ligne';
   }
+}
+function renderAtelier(items){
+  const z=document.getElementById('atelier-note'); if(!z)return;
+  z.innerHTML=items&&items.length
+    ?('Atelier — développement de l\'usine : '+items.map(i=>'<a target="_blank" href="https://github.com/'+REPO+'/issues/'+i.number+'">#'+i.number+'</a>').join(', ')+' (hors production, géré hors dashboard)')
+    :'';
 }
 skeletons();
 refresh();

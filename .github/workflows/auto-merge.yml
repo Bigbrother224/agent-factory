@@ -15,16 +15,19 @@ jobs:
     # Ferme la boucle du chantier résident : une PR chantier/* dont la CI est
     # verte ET dont la dernière revue kimi est GO est mergée (squash).
     # Les PRs humaines ne sont JAMAIS touchées — la porte 2 reste humaine.
+    # Exception ATELIER : une PR labelée `atelier` (développement de l'usine
+    # elle-même, pas de la production) suit la même règle CI-verte+GO —
+    # l'outillage ne doit JAMAIS séjourner sur le bus de production.
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Auto-merge des tranches vertes et GO
+      - name: Auto-merge des tranches vertes et GO (+ atelier)
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           for pr in $(gh pr list --repo "$GITHUB_REPOSITORY" --state open \
-            --json number,headRefName --limit 30 \
-            -q '.[] | select(.headRefName | startswith("chantier/")) | .number'); do
+            --json number,headRefName,labels --limit 30 \
+            -q '.[] | select((.headRefName | startswith("chantier/")) or ([.labels[].name] | index("atelier"))) | .number'); do
             echo "--- PR #$pr ---"
             # 1) CI entièrement verte ?
             if ! gh pr checks "$pr" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
