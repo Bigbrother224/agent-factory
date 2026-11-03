@@ -49,25 +49,27 @@ jobs:
           git config user.name "fleet-b-aider"
           git config user.email "actions@users.noreply.github.com"
 
-      - name: Cible (slug + branche de base)
+      - name: Cible (PR liée à l'issue, sinon branche/titre)
         env:
           GH_TOKEN: ${{ github.token }}
-          ISSUE_TITLE: ${{ github.event.issue.title }}
-          COMMENT_ID: ${{ github.event.comment.id }}
+          REPO: ${{ github.repository }}
         run: |
-          SLUG=$(python3 fleet/slugify.py "$ISSUE_TITLE")
-          echo "SLUG=$SLUG" >> "$GITHUB_ENV"
-          if git ls-remote --exit-code --heads origin "fleet/$SLUG" >/dev/null 2>&1; then
-            BASE="origin/fleet/$SLUG"
-          elif [ -d "projects/$SLUG" ]; then
-            BASE="origin/main"
-          else
-            gh api -X POST repos/$GITHUB_REPOSITORY/issues/comments \
-              -f issue_number=${{ github.event.issue.number }} \
-              -f body="!fix ignoré : aucun projet \`projects/$SLUG\` trouvé (ni branche fleet/$SLUG). Commente sur l'issue du projet concerné." >/dev/null
-            exit 1
+          TARGET=$(python3 fleet/fix-target.py)
+          SLUG="${TARGET%%|*}"
+          BRANCH="${TARGET#*|}"
+          if [ -z "$BRANCH" ]; then
+            if git ls-remote --exit-code --heads origin "fleet/$SLUG" >/dev/null 2>&1; then
+              BRANCH="fleet/$SLUG"
+            elif [ -d "projects/$SLUG" ]; then
+              BRANCH="origin/main"
+            else
+              gh issue comment "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" \
+                --body "!fix ignoré : aucun projet \`projects/$SLUG\` ni PR liée à cette issue. Commente sur l'issue du projet concerné." >/dev/null
+              exit 1
+            fi
           fi
-          echo "BASE=$BASE" >> "$GITHUB_ENV"
+          echo "SLUG=$SLUG" >> "$GITHUB_ENV"
+          echo "BASE=$BRANCH" >> "$GITHUB_ENV"
 
       - name: Session Aider sur tes instructions
         env:

@@ -38,7 +38,7 @@ req = urllib.request.Request(
         {
             "model": "kimi-k2.7-code:cloud",
             "messages": [{"role": "user", "content": PROMPT}],
-            "max_tokens": 4096,
+            "max_tokens": 16000,
         }
     ).encode(),
     headers={
@@ -51,4 +51,6 @@ try:
         out = json.load(r)["choices"][0]["message"]["content"]
 except Exception as e:  # noqa: BLE001
     out = f"## Revue du groupe C\n**PANNE du réviseur** (erreur API) : {e}\nVerdict par défaut : **NO-GO** à trancher par l'humain."
-print(out)
+if not out or not out.strip():
+    out = "## Revue du groupe C\n**PANNE du réviseur** : réponse du modèle vide (budget de tokens épuisé par le raisonnement ?). Verdict par défaut : **NO-GO** à trancher par l'humain."
+print(out.strip())
