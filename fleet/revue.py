@@ -10,20 +10,36 @@ import sys
 import urllib.request
 
 DIFF = open(sys.argv[1], encoding="utf-8").read()
-if len(DIFF) > 40000:
-    # Manifeste des fichiers touchés : le réviseur doit savoir ce qu'il
-    # n'a PAS vu — sinon il conclut « absent » (bug réel : la scène E2E
-    # teleblock a été jugée absente trois fois alors qu'elle était
-    # simplement au-delà du plafond de tokens).
+CAP = 40000
+if len(DIFF) > CAP:
+    # Budget partagé entre fichiers : chaque fichier du diff obtient une
+    # part du plafond et le réviseur voit un EXTRAIT DE TOUT (bug réel
+    # corrigé : la coupe naïve par la queue rendait tests/, internal/ et
+    # l'entrypoint invisibles — kimi a 3× jugé « absence de tests/e2e.sh »
+    # une scène qui passait la CI).
     import re
 
-    manifest = sorted({m.group(2) for m in re.finditer(r"^diff --git a/(\S+) b/(\S+)", DIFF, re.M)})
-    DIFF = DIFF[:40000] + (
-        "\n[… diff tronqué — taille plafonnée pour tenir dans le budget de tokens du réviseur …]\n"
-        "\nManifeste des fichiers du diff complet. Ceux non visibles ci-dessus sont coupés "
-        "par le plafond : juge-les « non évalués », ne conclus JAMAIS à leur absence.\n"
-        + "\n".join("- " + f for f in manifest)
+    parts = [p for p in re.split(r"(?m)^(?=diff --git )", DIFF) if p]
+    per = max(400, CAP // max(1, len(parts)))
+    chunks, cut_files = [], []
+    for p in parts:
+        m = re.match(r"diff --git a/(\S+) b/(\S+)", p)
+        name = m.group(2) if m else "?"
+        if len(p) > per:
+            chunks.append(p[:per] + "\n[… extrait seulement — fichier tronqué …]\n")
+            cut_files.append(name)
+        else:
+            chunks.append(p)
+    joined = "".join(chunks)
+    if len(joined) > CAP:
+        joined = joined[:CAP] + "\n[… plafond global atteint …]\n"
+    joined += (
+        "\n[… budget de tokens partagé entre les fichiers : seuls des extraits sont visibles. "
+        + f"{len(cut_files)} fichier(s) tronqué(s) : " + ", ".join(cut_files) + " …]\n"
+        + "Les fichiers tronqués sont « non évalués » : ne conclus JAMAIS à leur absence, "
+        + "et ne compte pas leur non-visibilité comme un problème.\n"
     )
+    DIFF = joined
 
 BAREME = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "BAREME.md"), encoding="utf-8").read()
 
