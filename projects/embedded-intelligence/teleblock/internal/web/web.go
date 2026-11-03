@@ -369,7 +369,7 @@ func parseArp(data []byte) []Host {
 func systemHostname(ip string) string {
 	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 	defer cancel()
-	names, err := net.LookupAddr(ctx, ip)
+	names, err := net.DefaultResolver.LookupAddr(ctx, ip)
 	if err != nil || len(names) == 0 {
 		return ""
 	}
