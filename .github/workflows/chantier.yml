@@ -1,0 +1,169 @@
+name: chantier-resident
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: chantier-resident
+  cancel-in-progress: false
+
+jobs:
+  cycle:
+    # L'ÉQUIPE RÉSIDENTE, sur VM GitHub (zéro dépendance au Mac) :
+    # roadmap (session plan) → tranche (session code) → arbitre → PR →
+    # CI + revue kimi → auto-merge (workflow auto-merge.yml).
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+
+      - name: Outils (aider + identité git)
+        run: |
+          chmod +x verify.sh
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          uv tool install --python 3.12 aider-chat
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          git config user.name "chantier-resident"
+          git config user.email "actions@users.noreply.github.com"
+          aider --version
+
+      - name: État du chantier
+        id: state
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          OUT=$(python3 fleet/chantier-state.py)
+          if [ -z "$OUT" ]; then
+            echo ">>> aucun chantier actif — l'usine dort."
+            echo "active=0" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          NUM="${OUT%%|*}"; REST="${OUT#*|}"; AXE="${REST%%|*}"; TITLE="${REST#*|}"
+          echo "num=$NUM" >> "$GITHUB_OUTPUT"
+          echo "axe=$AXE" >> "$GITHUB_OUTPUT"
+          echo "title=$TITLE" >> "$GITHUB_OUTPUT"
+          echo ">>> chantier actif : #$NUM — $TITLE (axe $AXE)"
+
+      - name: Branche du chantier
+        if: steps.state.outputs.active != '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          NUM: ${{ steps.state.outputs.num }}
+          AXE: ${{ steps.state.outputs.axe }}
+          TITLE: ${{ steps.state.outputs.title }}
+        run: |
+          SLUG=$(python3 fleet/slugify.py "$TITLE")
+          PROJDIR=""
+          if [ -d "projects/$AXE/$SLUG" ]; then PROJDIR="$SLUG"; else
+            FIRST="${SLUG%%-*}"
+            for d in projects/$AXE/*/; do d="${d%/}"; d="${d##*/}"
+              [ "$d" = "$FIRST" ] && PROJDIR="$d" && break; done
+          fi
+          if [ -z "$PROJDIR" ]; then
+            echo "aucun dossier projet — merger d'abord le MVP"; exit 0
+          fi
+          echo "PROJDIR=$PROJDIR" >> "$GITHUB_ENV"
+          echo "PROJ=projects/$AXE/$PROJDIR" >> "$GITHUB_ENV"
+          echo "BR=chantier/$PROJDIR" >> "$GITHUB_ENV"
+          if git ls-remote --exit-code --heads origin "chantier/$PROJDIR" >/dev/null 2>&1; then
+            git checkout -q -B "chantier/$PROJDIR" "origin/chantier/$PROJDIR"
+            git rebase origin/main || { git reset -q --hard origin/main; }
+          else
+            git checkout -q -B "chantier/$PROJDIR" origin/main
+          fi
+
+      - name: Roadmap (si absente — session plan)
+        if: steps.state.outputs.active != '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          NUM: ${{ steps.state.outputs.num }}
+          OPENAI_API_KEY: ${{ secrets.OLLAMA_API_KEY }}
+        run: |
+          [ -f "$PROJ/ROADMAP.md" ] && exit 0
+          gh issue view "$NUM" --json body -q .body > /tmp/spec.md
+          aider --model openai/glm-5.3-flash:cloud --openai-api-base https://ollama.com/v1 \
+            --weak-model openai/glm-5.3-flash:cloud --edit-format udiff \
+            --yes-always --no-auto-lint --no-check-update \
+            --no-attribute-author --no-attribute-committer \
+            --no-attribute-commit-message-author --no-attribute-commit-message-committer \
+            --message "Tu es le PLANIFICATEUR du chantier. Lis /tmp/spec.md (spec de l'issue #$NUM) et le code existant dans $PROJ/. Crée $PROJ/ROADMAP.md : le chemin du MVP actuel vers la définition de « shippé » de l'issue, en 5-8 tranches AUTONOMES. Format exact par tranche : « - [ ] T<n> : <objectif précis> — fichiers: <attendus> — vérif: <commande>. » Dernière tranche = « T<n> : définition de shippé atteinte ». Commence par « # Roadmap — <projet> » + tableau des tranches. Ne crée RIEN d'autre."
+
+      - name: Prochaine tranche
+        if: steps.state.outputs.active != '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          NUM: ${{ steps.state.outputs.num }}
+        run: |
+          TRANCHE=$(python3 fleet/next-tranche.py "$PROJ/ROADMAP.md")
+          if [ -z "$TRANCHE" ]; then
+            gh issue comment "$NUM" --body "🏁 **Roadmap terminée** — définition de shippé atteinte. Label \`ship/pr\` posé : à ta porte 2."
+            gh issue edit "$NUM" --add-label ship/pr
+            echo "FINISHED=1" >> "$GITHUB_ENV"
+            exit 0
+          fi
+          echo "TRANCHE=$TRANCHE" >> "$GITHUB_ENV"
+
+      - name: Tranche (session code, avec feedback kimi)
+        if: steps.state.outputs.active != '0' && env.FINISHED != '1'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          NUM: ${{ steps.state.outputs.num }}
+          OPENAI_API_KEY: ${{ secrets.OLLAMA_API_KEY }}
+        run: |
+          gh pr list --head "$BR" --state open --json number --limit 1 -q '.[0].number' > /tmp/prnum || echo "" > /tmp/prnum
+          FEEDBACK=""
+          if [ -s /tmp/prnum ]; then
+            gh pr view "$(cat /tmp/prnum)" --json comments \
+              -q '[.comments[].body] | map(select(startswith("## Revue du groupe C"))) | last' > /tmp/revue.md || true
+            [ -s /tmp/revue.md ] && FEEDBACK="AVANT de coder : lis /tmp/revue.md — la dernière revue kimi. Corrige en priorité les points BLOQUANT/SÉRIEUX qui concernent $PROJ/. "
+          fi
+          aider --model openai/glm-5.3-flash:cloud --openai-api-base https://ollama.com/v1 \
+            --weak-model openai/glm-5.3-flash:cloud --edit-format udiff \
+            --yes-always --no-auto-lint --no-check-update \
+            --no-attribute-author --no-attribute-committer \
+            --no-attribute-commit-message-author --no-attribute-commit-message-committer \
+            --test-cmd "./verify.sh $AXE/$PROJDIR" --auto-test \
+            --message "${FEEDBACK}Tu es le CODEUR du chantier. Dans $PROJ/ : implémente la tranche «${TRANCHE#*] }». Lis $PROJ/ROADMAP.md pour le contexte global. Contraintes : ne modifie rien en dehors de $PROJ/, ./verify.sh $AXE/$PROJDIR doit finir VERT (exécute-le), puis coche la tranche [x] dans $PROJ/ROADMAP.md."
+          ./verify.sh "$AXE/$PROJDIR"
+
+      - name: PR (création ou mise à jour)
+        if: steps.state.outputs.active != '0' && env.FINISHED != '1'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          NUM: ${{ steps.state.outputs.num }}
+        run: |
+          git add -A
+          git commit -m "chantier $PROJDIR : ${TRANCHE#*] }" --allow-empty || true
+          git push -q -u origin "$BR" --force-with-lease
+          PR=$(gh pr list --head "$BR" --state open --json url -q '.[0].url' 2>/dev/null || true)
+          if [ -z "$PR" ]; then
+            gh pr create --base main --head "$BR" \
+              --title "[chantier] $PROJDIR — tranches consécutives (issue #$NUM)" \
+              --body "Boucle chantier résidente (VM GitHub) : tranches vers la définition de shippé de l'issue #$NUM. Auto-merge si CI verte + revue kimi GO."
+          else
+            gh pr comment "$PR" --body "tranche avancée : ${TRANCHE#*] }"
+          fi
+          echo ">>> cycle terminé — CI + revue kimi + auto-merge prennent le relais."

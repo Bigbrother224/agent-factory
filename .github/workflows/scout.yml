@@ -1,0 +1,30 @@
+name: scout
+
+on:
+  schedule:
+    - cron: "30 8 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  scout:
+    # Groupe A sur VM GitHub : digest sourcé du jour → idée alignée axe →
+    # ideas/<date>-<slug>.md + issue idea/draft + axe/* → porte 1 humaine.
+    # Zéro dépendance au Mac.
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Scout du jour
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          OLLAMA_KEY: ${{ secrets.OLLAMA_API_KEY }}
+        run: |
+          git config user.name "scout-resident"
+          git config user.email "actions@users.noreply.github.com"
+          python3 fleet/scout.py
