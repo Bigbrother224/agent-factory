@@ -16,7 +16,7 @@ export PATH="/Users/mac/.npm-global/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bi
 
 REPO="/Users/mac/Projects/factory"
 R="Bigbrother224/agent-factory"
-LOCK="/tmp/usine-chantier.lock"
+
 LOG="/tmp/usine-chantier.log"
 
 # Auth pi : launchd n'hérite pas de .zshrc (pattern du fix scout-daily 2026-11-03).
@@ -30,9 +30,13 @@ fi
 log() { echo "[$(date '+%F %T')] $*" | tee -a "$LOG"; }
 log "=== cycle chantier ==="
 
-# Une seule instance
-exec 9>"$LOCK"
-flock -n 9 || { log "un cycle tourne déjà — sortie."; exit 0; }
+# Une seule instance : verrou mkdir atomique (macOS n'a pas flock)
+LOCKDIR="/tmp/usine-chantier-cycle"
+if ! mkdir "$LOCKDIR" 2>/dev/null; then
+  log "un cycle tourne déjà — sortie."
+  exit 0
+fi
+trap 'rmdir "$LOCKDIR" 2>/dev/null' EXIT
 
 cd "$REPO"
 git fetch -q origin
@@ -81,7 +85,7 @@ git -C "$WT" rebase -q origin/main || { log "rebase impossible — worktree resy
 # 4) ROADMAP absente → le PLANIFICATEUR la rédige (lecture-seule → son rapport devient la roadmap)
 if [ ! -f "$WT/$PROJ/ROADMAP.md" ]; then
   log "ROADMAP absente — planificateur (flash)…"
-  gh issue view "$NUM" -R "$R" --json body -q .body > "$WT/.spec-issue.md"
+  gh issue view "$NUM" -R "$R" --json body -q .body > /tmp/usine-chantier-spec.md
   ~/bin/pi-team planificateur "Lis .spec-issue.md (spec de l'issue #$NUM, projet $PROJDIR) et le code existant dans $PROJ/. Rédige dans ton RAPPORT FINAL un document markdown qui sera copié tel quel en $PROJ/ROADMAP.md. Il découpe le chemin du MVP actuel vers la définition de « shippé » de l'issue en 5-8 tranches AUTONOMES (chacune faisable en une session). Format exact par tranche : « - [ ] T<n> : <objectif précis> — fichiers: <attendus> — vérif: <commande>. » La dernière tranche = « T<n> : définition de shippé atteinte » selon l'issue. Le document commence par un titre « # Roadmap — <projet> » et un tableau des tranches. Rien d'autre dans le rapport." "$WT" > /tmp/pi-team-plan.out 2>&1 || true
   PLAN=$(grep -o '/tmp/pi-team-[^ ]*planificateur\.md' /tmp/pi-team-plan.out | head -1)
   if [ -n "$PLAN" ] && [ -s "$PLAN" ]; then
