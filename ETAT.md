@@ -70,6 +70,13 @@ Problème remonté par l'humain : impossible d'ouvrir le NO-GO de la PR #11, inf
 - **Dashboard** : les éléments atelier sont exclus des vues production (chaînes, ligne de process) ; une ligne discrète en pied de page les référence.
 - Coulée ce tour (PRs #10/#12 retirées du bus, contenus atterrés directement) : `fleet/BAREME.md` joint au brief de la flotte + craft node/go/python injecté selon le langage de la spec ; garde anti double-run + relances CI auto (max 3, garde-fou périmètre) + hygiène de labels dans fleet.yml ; réouverture de PR fermée au !fix ; règle 3 (min 8 tests) arbitrée par verify.sh ; revue kimi : barème intégré, notes par dimension, relance auto 25k sur réponse vide, nuance PRs d'infra ; **correcteur C3** (revue NO-GO d'une PR projet → session Aider correctrice, max 2 cycles → revue/bloquee → porte 2).
 
+## Fait — tour 12 (2026-11-03, 14:40 — cadence non-stop + E2E, verrou flagship reconfirmé)
+- **RÈGLE RECONFIRMÉE** : glm-5.3:cloud (flagship) INTERDIT dans l'usine — flash partout. (Le quota brûlé aujourd'hui venait de la session pi de l'humain elle-même, lancée en flagship : relancer en `pi -m glm-5.3-flash:cloud`.)
+- **Repo public** + chantier **horaire** (minutes illimitées) + batch 4 tranches/run, budget 2400 s — ~6× la cadence d'hier.
+- **E2E partout** : verify.sh exécute `tests/e2e.sh` si présent ; le planificateur doit planifier une tranche E2E ; kimi refuse GO final sans scène E2E réelle (barème règle 7).
+- **Scène E2E teleblock écrite** (worktree /tmp/factory-teleblock, branche chantier/teleblock) : binaire réel démarré, DNS sinkhole/passthrough, RST sur SNI bloqué, inspection sans blocage, dashboard. **NON poussée** : le run local a été interrompu (à déboguer : probablement la route du dashboard T4 ou l'attente de disponibilité) — à finir avant de pousser sur la branche.
+- Récupéré au passage : le travail dashboard non commité des 3 fenêtres fermées (modale revue kimi) — mergé sur main.
+
 ## Prochaine étape
 Toi : recharger http://localhost:7777, cliquer sur la ligne « Revue kimi » de la carte TeleBlock pour lire le NO-GO en entier, puis décider porte 2 (merge) ou laisser le résident (batch 6 h) corriger et re-soumettre. Toujours en attente : trancher public/privé du repo (portfolio visible des recruteurs).
 
