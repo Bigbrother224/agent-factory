@@ -2,7 +2,9 @@ name: chantier-resident
 
 on:
   schedule:
-    - cron: "25 */6 * * *"
+    # Repo PUBLIC (décision humaine 2026-11-03) = minutes standard illimitées :
+    # l'équipe code non-stop — un cycle par heure, 4 tranches max par cycle.
+    - cron: "20 * * * *"
   workflow_dispatch:
 
 permissions:
@@ -20,7 +22,7 @@ jobs:
     # roadmap (session plan) → tranche (session code) → arbitre → PR →
     # CI + revue kimi → auto-merge (workflow auto-merge.yml).
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 50
     steps:
       - uses: actions/checkout@v4
         with:
@@ -110,7 +112,7 @@ jobs:
             --yes-always --no-auto-lint --no-check-update \
             --no-attribute-author --no-attribute-committer \
             --no-attribute-commit-message-author --no-attribute-commit-message-committer \
-            --message "Tu es le PLANIFICATEUR du chantier. Lis /tmp/spec.md (spec de l'issue #$NUM) et le code existant dans $PROJ/. Crée $PROJ/ROADMAP.md : le chemin du MVP actuel vers la définition de « shippé » de l'issue, en 5-8 tranches AUTONOMES. Format exact par tranche : « - [ ] T<n> : <objectif précis> — fichiers: <attendus> — vérif: <commande>. » Dernière tranche = « T<n> : définition de shippé atteinte ». Commence par « # Roadmap — <projet> » + tableau des tranches. Ne crée RIEN d'autre.$DESIGN"
+            --message "Tu es le PLANIFICATEUR du chantier. Lis /tmp/spec.md (spec de l'issue #$NUM) et le code existant dans $PROJ/. Crée $PROJ/ROADMAP.md : le chemin du MVP actuel vers la définition de « shippé » de l'issue, en 5-8 tranches AUTONOMES. EXIGENCE : une tranche obligatoire avant la dernière = scène E2E réelle ($PROJ/tests/e2e.sh, exécuté par l'arbitre) qui démarre le produit pour de vrai et vérifie son comportement observable de bout en bout. Format exact par tranche : « - [ ] T<n> : <objectif précis> — fichiers: <attendus> — vérif: <commande>. » Dernière tranche = « T<n> : définition de shippé atteinte ». Commence par « # Roadmap — <projet> » + tableau des tranches. Ne crée RIEN d'autre.$DESIGN"
 
       - name: Prochaine tranche
         if: steps.state.outputs.active == '1'
@@ -128,7 +130,7 @@ jobs:
           fi
           echo "TRANCHE=$TRANCHE" >> "$GITHUB_ENV"
 
-      - name: "Batch de tranches — jusqu à 3 par run (feedback kimi + skills + relance + rollback)"
+      - name: "Batch de tranches — jusqu à 4 par run (feedback kimi + skills + relance + rollback)"
         if: steps.state.outputs.active == '1' && env.FINISHED != '1'
         env:
           GH_TOKEN: ${{ github.token }}
@@ -166,6 +168,7 @@ jobs:
               echo
               echo "## Contraintes"
               echo "- Ne modifie rien en dehors de $PROJ/."
+              echo "- Si $PROJ/tests/e2e.sh existe, l'arbitre l'exécute à chaque passe : garde-le vert et étends-le pour couvrir le comportement livré par cette tranche."
               echo "- Une fois les éditions faites, coche la tranche [x] dans $PROJ/ROADMAP.md (édite-le aussi)."
             } > /tmp/brief-tranche.md
           }
@@ -178,10 +181,10 @@ jobs:
           START=$SECONDS
           DELIVERED=0
           GREEN_SHA=$(git rev-parse HEAD)
-          for i in 1 2 3; do
+          for i in 1 2 3 4; do
             TR=$(python3 fleet/next-tranche.py "$PROJ/ROADMAP.md")
             [ -z "$TR" ] && break
-            [ $((SECONDS - START)) -gt 1200 ] && { echo ">>> budget temps du run atteint."; break; }
+            [ $((SECONDS - START)) -gt 2400 ] && { echo ">>> budget temps du run atteint."; break; }
             echo "=== tranche ${TR#*] } (itération $i) ==="
             build_brief "$FEEDBACK" "Tu es le CODEUR du chantier. Implémente MAINTENANT la tranche «${TR#*] }» dans $PROJ/ en produisant des blocs udiff SEARCH/REPLACE complets dans cette réponse — pas de plan, pas d'attente : l'arbitre ./verify.sh est exécuté automatiquement après tes éditions, tu n'as rien à me demander. Lis d'abord $PROJ/ROADMAP.md pour le contexte."
             BEFORE=$(git rev-parse HEAD)

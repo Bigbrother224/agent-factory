@@ -72,11 +72,20 @@ for name in $TARGETS; do
   else
     fail "$name : type de projet inconnu (ni package.json, ni go.mod, ni pyproject.toml)"
   fi
+  # Scène E2E (règle humaine 2026-11-03) : si le projet définit tests/e2e.sh,
+  # le scénario réel bout-en-bout doit passer — le produit démarre pour de
+  # vrai et son comportement observable est vérifié, pas seulement ses unités.
+  if [ -f "$dir/tests/e2e.sh" ]; then
+    say "$name : scène E2E (tests/e2e.sh)"
+    ( cd "$dir" && bash tests/e2e.sh ) || { fail "$name : E2E — tests/e2e.sh a échoué"; continue; }
+  fi
 done
 
 printf '\n'
 
-# Garde budgétaire (ordre humain 2026-11-03) : le flagship glm-5.3 est INTERDIT — flash uniquement.
+# Garde budgétaire (ordre humain 2026-11-03, reconfirmé 14:35) : le flagship
+# glm-5.3:cloud est INTERDIT dans l'usine — flash uniquement. La qualité passe
+# par la boucle (scène E2E + relances + barème kimi), jamais par le modèle.
 if grep -rq "glm-5.3:cloud" "$REPO_ROOT/.github/workflows" 2>/dev/null; then
   fail "budget : glm-5.3:cloud (flagship) détecté dans .github/workflows — interdit, glm-5.3-flash:cloud uniquement"
 fi

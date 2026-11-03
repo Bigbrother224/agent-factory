@@ -34,6 +34,11 @@ Vert ≠ bon. `verify.sh` vert est un plancher, pas une garantie. Ce barème est
 - Un test qui ne peut pas échouer n'est pas un test.
 - Chaque règle métier annoncée dans la spec a au moins un test qui la protège.
 
+## 7. Scène E2E (exigence de ship, ajout 2026-11-03)
+- Avant tout GO final (roadmap terminée) : le projet possède `tests/e2e.sh`, exécuté par l'arbitre — il démarre le produit POUR DE VRAI (binaire/process lancé, ports servis) et vérifie son comportement observable de bout en bout (scénario métier complet, pas des unités isolées).
+- Un projet au stade final sans scène E2E passante ne peut PAS recevoir GO. Avant le stade final, son absence est signalée SÉRIEUX dans la revue.
+- La scène E2E vit avec le produit : chaque tranche qui ajoute un comportement observable l'étend.
+
 ## Anti-patterns = refus immédiat
 - Réinventer la std lib, code mort, commentaires narratifs qui paraphrasent le code.
 - Over-engineering : abstraction, config ou paramètre jamais utilisé.
