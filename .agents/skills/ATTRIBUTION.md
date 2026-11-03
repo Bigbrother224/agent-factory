@@ -5,7 +5,7 @@ Skills installés le 2026-11-03, sélectionnés pour équiper les agents de l'us
 
 | Skill | Source | Licence | Usage dans l'usine |
 |---|---|---|---|
-| `frontend-design` | [anthropics/skills](https://github.com/anthropics/skills) — skills/frontend-design | MIT (LICENSE.txt joint) | L'étalon design anti-vibecoding ; adapté pour les briefs dans `fleet/skills/frontend-design.md` |
+| `frontend-design` | [anthropics/skills](https://github.com/anthropics/skills) — skills/frontend-design | **Apache 2.0** (LICENSE.txt joint) | L'étalon design anti-vibecoding ; adapté pour les briefs dans `fleet/skills/frontend-design.md` |
 | `test-driven-development` (+ writing-good-tests.md) | [obra/superpowers](https://github.com/obra/superpowers) — skills/test-driven-development | MIT | Discipline du codeur du chantier ; condensé dans `fleet/skills/tdd.md` |
 | `systematic-debugging` | obra/superpowers — skills/systematic-debugging | MIT | Cause racine avant correctif ; condensé dans `fleet/skills/debugging.md` |
 | `verification-before-completion` | obra/superpowers — skills/verification-before-completion | MIT | Preuves avant déclarations ; condensé dans `fleet/skills/verification.md` |
@@ -16,7 +16,7 @@ Skills installés le 2026-11-03, sélectionnés pour équiper les agents de l'us
 - **obra/superpowers (311k ⭐)** : la référence méthodologique — des lois de fer qui
   compensent exactement les faiblesses des modèles flash (affirmations non prouvées,
   fixes de symptôme, code avant test).
-- **anthropics/skills** : le skill officiel `frontend-design` nomme littéralement les
+- **anthropics/skills** (Apache 2.0 pour le skill frontend-design) : le skill officiel `frontend-design` nomme littéralement les
   « tells du design généré par IA » (kit SaaS-cards, fond crème + terracotta, eyebrows
   ALL-CAPS, « → » sur les boutons) — l'antidote direct au « on voit trop que c'est vibecodé ».
 
