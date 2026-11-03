@@ -8,11 +8,11 @@ Définition de « shippé » (issue #2) : image Pi flashable + docker compose, b
 | T1 | Empreinte JA4 + blocage TCP ciblé (fin de l'inspection SNI passive) |
 | T2 | Mode apprentissage / observation par appareil |
 | T3 | Tableau de bord web embarqué |
-| T4 | README portfolio anglais (contrat B règle 6) |
-| T5 | Docker Compose (migration Pi-hole / déploiement avancé) |
-| T6 | Image Raspberry Pi flashable & cross-compile ARM64 |
-| T7 | Validation Samsung + LG : Netflix et YouTube fonctionnels, télémétrie bloquée |
-| T8 | Définition de shippé atteinte |
+| T4 | Tableau de bord web local (TV panel) |
+| T5 | README portfolio anglais (contrat B règle 6) |
+| T6 | Docker Compose (migration Pi-hole / déploiement avancé) |
+| T7 | Image Raspberry Pi flashable & cross-compile ARM64 |
+| T8 | Validation Samsung + LG : Netflix et YouTube fonctionnels, télémétrie bloquée — définition de shippé atteinte |
 
 - [x] T1 : inspection TLS passive sur port 443 — extraire le SNI en direct via TCP proxy/redirect iptables, appliquer le verdict du Set de marque et envoyer un reset TCP ciblé sur les flux bloqués (jamais du contenu vidéo décrypté) — fichiers : `internal/tcp/` (nouveaux), `main.go`, tests dans `internal/tcp/*_test.go` — vérif: `./verify.sh teleblock` (le package `internal/tcp` passe go vet/build/test).
 - [x] T2 : empreinte JA4 par ClientHello — calculer l'empreinte (version TLS + suites + extensions) et l'exposer pour classer les flux inconnus vers le verdict Observe — fichiers : `internal/sni/ja4.go` (ou `internal/ja4/`), `internal/ja4/ja4_test.go` — vérif: `./verify.sh teleblock`.
