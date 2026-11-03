@@ -35,13 +35,16 @@ esac
 # (set -e sort via le trap EXIT), docker stop (TERM) — sinon le HTTPS
 # du LAN reste coupé après la mort du conteneur (revue : fuite
 # bloquante). cleanup est idempotente : un double passage est inoffensif.
+child=""
+# Cleanup idempotente : un double passage est inoffensif. child est
+# initialisé AVANT le trap : un signal reçu entre le trap et l'assignation
+# (démarrage lent du binaire) ne tue pas le shell sous set -u — la règle
+# iptables doit toujours partir avec le conteneur (revue : fuite bloquante).
 cleanup() {
 	iptables -t nat -D PREROUTING -p tcp --dport 443 -j REDIRECT --to-ports "$TLS_PORT" 2>/dev/null || true
-	# child="" initialisé avant le trap : un signal reçu entre le trap et
-	# l'assignation (démarrage lent du binaire) ne doit pas tuer le shell
-	# sous set -u SANS retirer la règle iptables (revue : fuite bloquante).
-	[ -n "$child" ] && kill "$child" 2>/dev/null
-	true
+	if [ -n "$child" ]; then
+		kill "$child" 2>/dev/null || true
+	fi
 }
 trap cleanup EXIT INT TERM
 

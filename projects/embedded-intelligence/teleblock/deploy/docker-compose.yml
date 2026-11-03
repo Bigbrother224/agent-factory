@@ -34,6 +34,10 @@ services:
       - ":${TELEBLOCK_DNS_PORT:-53}"
       - -tls-listen
       - ":${TELEBLOCK_TLS_PORT:-8449}"
+      # Dashboard TV panel : en network_mode: host, ce port EST celui du LAN
+      # (accessible par défaut sur http://<hôte>:8080).
+      - -web-listen
+      - ":${TELEBLOCK_WEB_PORT:-8080}"
       - -observe-state
       - /var/lib/teleblock/observe.json
     volumes:

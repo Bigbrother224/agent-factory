@@ -477,5 +477,5 @@ func shortHash(s string) string {
 
 // isASCIIAlnum reports ASCII 0x30-0x39, 0x41-0x5A, 0x61-0x7A.
 func isASCIIAlnum(b byte) bool {
-	return b >= '0' && b <= '9' || b >= 'A' && b <= 'Z' || b >= 'a' && b <= 'z'
+	return (b >= '0' && b <= '9') || (b >= 'A' && b <= 'Z') || (b >= 'a' && b <= 'z')
 }

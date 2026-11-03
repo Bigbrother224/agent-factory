@@ -76,18 +76,18 @@ func (r *Router) Assign(ip net.IP, brand string) error {
 	if _, ok := r.sets[brand]; !ok {
 		return fmt.Errorf("unknown brand %q", brand)
 	}
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	// Persister AVANT de muter la map : si Register échoue, l'assignation
-	// échoue entière (contrat « l'échec de persistance fait échouer
-	// l'assignation ») — jamais un appareil assigné en mémoire sans état
-	// persisté (revue : atomicité).
+	// Persistance HORS r.mu : learn.Register a son propre verrou et fait de
+	// l'I/O disque ; garder r.mu pendant ce temps sérialise le chemin chaud
+	// Verdict (revue). La map n'est mutée qu'après un Register réussi —
+	// l'atomicité persistée <=> assignation est conservée.
 	if r.learn != nil {
 		if err := r.learn.Register(ip, brand); err != nil {
 			return fmt.Errorf("device %s: %w", ip, err)
 		}
 	}
+	r.mu.Lock()
 	r.devices[ip.String()] = brand
+	r.mu.Unlock()
 	return nil
 }
 
@@ -130,28 +130,32 @@ func (r *Router) State(ip net.IP) DeviceState {
 func (r *Router) Verdict(ip net.IP, domain string) rules.Verdict {
 	r.mu.RLock()
 	learn := r.learn
+	// Marque et set capturés SOUS le RLock : le chemin chaud n'accède plus à
+	// r.devices/r.sets hors verrou (revue : lecture concurrente d'Assign).
+	brand := r.brand(ip)
+	set := r.set(brand)
 	r.mu.RUnlock()
 	if learn == nil {
-		return r.Set(ip).Verdict(domain)
+		return set.Verdict(domain)
 	}
 	switch r.State(ip) {
 	case DeviceUnknown:
-		return r.Set(ip).Verdict(domain)
+		return set.Verdict(domain)
 	case DeviceLearning:
-		r.record(learn, ip, domain)
+		r.record(learn, ip, brand, set, domain)
 		return rules.Observe
 	default: // DeviceReady
-		r.record(learn, ip, domain)
+		r.record(learn, ip, brand, set, domain)
 		return rules.Verdict(learn.Decide(ip, domain))
 	}
 }
 
 // record feeds the observed domain to the learning store, with the verdict
 // its brand rule set proposes. A persistence failure does not change the
-// verdict: it is logged and left to the next query to fix.
-func (r *Router) record(learn *observe.Store, ip net.IP, domain string) {
-	brand := r.Brand(ip)
-	if err := learn.Learn(ip, brand, domain, observe.Verdict(r.set(brand).Verdict(domain))); err != nil {
+// verdict: it is logged and left to the next query to fix. Toute lecture
+// d'état du routeur a été faite sous le RLock de Verdict avant l'appel.
+func (r *Router) record(learn *observe.Store, ip net.IP, brand string, set rules.Set, domain string) {
+	if err := learn.Learn(ip, brand, domain, observe.Verdict(set.Verdict(domain))); err != nil {
 		log.Printf("profile: device %s: record %s: %v", ip, domain, err)
 	}
 }

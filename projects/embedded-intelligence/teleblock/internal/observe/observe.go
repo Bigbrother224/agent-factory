@@ -172,7 +172,6 @@ func (s *Store) Learn(ip net.IP, brand, domain string, proposed Verdict) error {
 		return fmt.Errorf("observe: device %s: invalid proposed verdict %q", ip, proposed)
 	}
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	key := ip.String()
 	now := s.now()
 	d, ok := s.devices[key]
@@ -200,9 +199,17 @@ func (s *Store) Learn(ip net.IP, brand, domain string, proposed Verdict) error {
 		dirty = true
 	}
 	if !dirty {
+		s.mu.Unlock()
 		return nil
 	}
-	return s.save()
+	// Sérialisation sous le verrou (rapide), écriture disque HORS verrou : garder
+	// s.mu pendant l'I/O sérialise tous les apprenants (revue).
+	state, encErr := json.MarshalIndent(s.devices, "", "  ")
+	s.mu.Unlock()
+	if encErr != nil {
+		return fmt.Errorf("observe: encode state: %w", encErr)
+	}
+	return s.writeState(state)
 }
 
 // Register declares a device and starts its learning period: a newly seen
@@ -216,18 +223,25 @@ func (s *Store) Register(ip net.IP, brand string) error {
 		return fmt.Errorf("observe: device %s: empty brand", ip)
 	}
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	key := ip.String()
 	d, ok := s.devices[key]
 	if !ok {
 		d = &Device{IP: key, Brand: brand, StartedAt: s.now(), Entries: map[string]Entry{}}
 		s.devices[key] = d
 	} else if d.Brand == brand {
+		s.mu.Unlock()
 		return nil
 	} else {
 		d.Brand = brand
 	}
-	return s.save()
+	// Sérialisation sous le verrou (rapide), écriture disque HORS verrou : garder
+	// s.mu pendant l'I/O sérialise tous les apprenants (revue).
+	state, encErr := json.MarshalIndent(s.devices, "", "  ")
+	s.mu.Unlock()
+	if encErr != nil {
+		return fmt.Errorf("observe: encode state: %w", encErr)
+	}
+	return s.writeState(state)
 }
 
 // Known reports whether the device has ever been declared to the store.
@@ -336,13 +350,11 @@ func (s *Store) Decide(ip net.IP, domain string) Verdict {
 	return Allow
 }
 
-// save persists the state atomically: it is written next to its target and
-// renamed in place, so a crash never leaves a half-written state behind.
-func (s *Store) save() error {
-	buf, err := json.MarshalIndent(s.devices, "", "  ")
-	if err != nil {
-		return fmt.Errorf("observe: encode state: %w", err)
-	}
+// writeState écrit un instantané déjà sérialisé hors s.mu, de façon atomique :
+// il est écrit à côté de sa cible puis renommé en place, pour qu'un crash ne
+// laisse jamais un état à moitié écrit derrière lui. Toujours appelé HORS
+// verrou : la sérialisation se fait sous le verrou de l'appelant, l'I/O ici.
+func (s *Store) writeState(buf []byte) error {
 	dir := filepath.Dir(s.path)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return fmt.Errorf("observe: create %s: %w", dir, err)
