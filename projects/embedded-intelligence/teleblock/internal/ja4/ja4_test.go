@@ -12,10 +12,23 @@ func ext(typ uint16, data []byte) []byte {
 	return append(e, data...)
 }
 
-// u16vector encodes a two-byte-length list of u16 values.
+// u16vector encodes a two-byte-length list of u16 values
+// (signature_algorithms, RFC 5246).
 func u16vector(values []uint16) []byte {
 	var v bytes.Buffer
 	v.Write([]byte{byte(len(values) * 2 >> 8), byte(len(values) * 2)})
+	for _, x := range values {
+		v.Write([]byte{byte(x >> 8), byte(x)})
+	}
+	return v.Bytes()
+}
+
+// u16vector8 encodes a one-byte-length list of u16 values
+// (supported_versions, RFC 8446 §4.2.1 — the real wire format every
+// TLS 1.3 client uses).
+func u16vector8(values []uint16) []byte {
+	var v bytes.Buffer
+	v.WriteByte(byte(len(values) * 2))
 	for _, x := range values {
 		v.Write([]byte{byte(x >> 8), byte(x)})
 	}
@@ -82,7 +95,7 @@ func specExampleRecord() []byte {
 		extensionServerName:    sniBody(),
 		extensionALPN:          alpnvector("h2"),
 		extensionSigAlgs:       u16vector([]uint16{0x0403, 0x0804, 0x0401, 0x0503, 0x0805, 0x0501, 0x0806, 0x0601}),
-		extensionSupportedVers: u16vector([]uint16{0x0304}),
+		extensionSupportedVers: u16vector8([]uint16{0x0304}),
 		0x001b:                 {0x01, 0x00},
 		0x0033:                 {0x00, 0x17, 0x00, 0x41, 0x04},
 		0x4469:                 {0x04, 0x00, 0x02, 0x04, 0x01},
@@ -141,7 +154,7 @@ func TestTLS13NoSNIAndNoALPN(t *testing.T) {
 	extensions := []uint16{0x000d, 0x002b}
 	bodies := map[uint16][]byte{
 		extensionSigAlgs:       u16vector([]uint16{0x1301, 0x1302}),
-		extensionSupportedVers: u16vector([]uint16{0x0a0a, 0x0304, 0x0303}),
+		extensionSupportedVers: u16vector8([]uint16{0x0a0a, 0x0304, 0x0303}),
 	}
 	got, err := Fingerprint(helloRecord(0x0303, ciphers, extensions, bodies))
 	if err != nil {

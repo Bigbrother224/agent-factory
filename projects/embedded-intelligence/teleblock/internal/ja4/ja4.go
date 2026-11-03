@@ -218,7 +218,10 @@ func Parse(record []byte) (*Hello, error) {
 				return nil, err
 			}
 		case extensionSupportedVers:
-			supported, err = parseU16List(extBody)
+			// RFC 8446 §4.2.1 : la liste des versions supportées du
+			// ClientHello est préfixée par une longueur sur UN octet,
+			// contrairement à signature_algorithms (RFC 5246, deux octets).
+			supported, err = parseU16List8(extBody)
 			if err != nil {
 				return nil, err
 			}
@@ -397,7 +400,7 @@ func parseALPN(b []byte) ([]string, error) {
 }
 
 // parseU16List decodes a two-byte-length list of u16 values
-// (signature_algorithms, supported_versions).
+// (signature_algorithms, RFC 5246).
 func parseU16List(b []byte) ([]uint16, error) {
 	c := cursor{b: b}
 	listLen, err := c.u16()
@@ -408,6 +411,29 @@ func parseU16List(b []byte) ([]uint16, error) {
 		return nil, errTruncated
 	}
 	var list []uint16
+	for c.i < len(c.b) {
+		v, err := c.u16()
+		if err != nil {
+			return nil, err
+		}
+		list = append(list, uint16(v))
+	}
+	return list, nil
+}
+
+// parseU16List8 decodes a one-byte-length list of u16 values
+// (supported_versions, RFC 8446 §4.2.1: the ClientHello carries
+// SupportedVersions<24..2^8-2>, a one-byte length prefix).
+func parseU16List8(b []byte) ([]uint16, error) {
+	if len(b) < 1 {
+		return nil, errTruncated
+	}
+	listLen := int(b[0])
+	if listLen != len(b)-1 || listLen%2 != 0 {
+		return nil, errTruncated
+	}
+	var list []uint16
+	c := cursor{b: b[1:]}
 	for c.i < len(c.b) {
 		v, err := c.u16()
 		if err != nil {
