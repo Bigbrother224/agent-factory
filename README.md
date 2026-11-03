@@ -24,6 +24,16 @@ un axe de spécialité à la fois. Aucun service payant : tout tourne sur plan O
 
 ## ⚙️ L'usine (comment ce portfolio se construit)
 
+**Une équipe résidente bosse en continu sur le chantier actif :**
+
+La boucle chantier (launchd, toutes les 45 min sur le Mac + auto-merge GitHub) :
+le **planificateur** découpe le projet approuvé en tranches (ROADMAP.md), un
+**crew pi-team** (codeur + vérifieur, flash) implémente une tranche par cycle,
+l'arbitre vérifie, la **revue kimi** joue le tech lead (ses retours nourrissent
+le cycle suivant), et l'auto-merge GitHub fusionne les tranches vertes+GO.
+À la fin du roadmap : label `ship/pr` → porte 2 humaine. **L'usine construit
+pendant que tu ne regardes pas.**
+
 **3 groupes d'agents, événementiels — zéro VM qui dort :**
 
 | Groupe | Agent | Quand |

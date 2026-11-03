@@ -27,6 +27,12 @@ Dernière mise à jour : 2026-11-03
 - Strip pipeline (portes 1/2, chantier, à réparer, shippés, date du dernier digest de veille) + tables runs agents et revues kimi + portfolio main par axe (flag README manquant — teleblock signalé, règle 6 pas encore satisfaite).
 - Vérifié en réel : 3 issues / 7 PRs / 30 runs / digest / fil des 4 messages de #2 / kimi NO-GO PR #10 / garde-fous (note vide, axe invalide, action inconnue refusés).
 
+## Fait — tour 8 (2026-11-03, l'âme de l'usine : l'équipe résidente)
+- **Boucle chantier** (`scripts/chantier.sh` + launchd com.usine.chantier, 45 min) : planificateur → ROADMAP (8 tranches) → crew pi-team (flash/nemotron) → arbitre → PR `chantier/<projet>` → CI + revue kimi → auto-merge GitHub (vert+GO uniquement, PRs chantier/* seulement).
+- **Prouvé en réel, 2 cycles** : T1 (inspection TCP/SNI + reset ciblé, internal/tcp) puis T2 (empreinte JA4, internal/ja4) — arbiter vert, PR #11 vivante, kimi joue tech lead (a refusé 2 NO-GO légitimes : violation de périmètre crew corrigée, intégration JA4 à finir, IPv6 à traiter — ses retours sont injectés au crew du cycle suivant).
+- Réviseur durci : 32k tokens, diff plafonné 40 Ko (saturation détectée et corrigée).
+- Fin de roadmap = label `ship/pr` sur l'issue → porte 2 humaine. Les portes humaines restent : valider les idées, merger le ship.
+
 ## Prochaine étape
 Toi : ouvrir `~/Projects/factory/dashboard/start.sh` → trancher la PR #10 (couche qualité, kimi NO-GO — lire la revue sur la carte) depuis la carte ou `gh pr view 10 -R Bigbrother224/agent-factory`, puis demain valider le premier cycle scout complet sous la nouvelle structure (idée alignée axe → porte 1 → flotte → porte 2).
 
