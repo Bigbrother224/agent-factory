@@ -45,7 +45,7 @@ for name in $TARGETS; do
     if has build; then npm run --silent build || { fail "$name : build (node)"; continue; }; fi
     # Contrat B, règle 3 : minimum 8 tests réels (comptés dans les fichiers de test).
     TESTS=$(find "$dir" \( -name '*.test.js' -o -path '*/test/*' \) -type f -name '*.js' -print0 2>/dev/null \
-      | xargs -0 grep -hE '^[[:space:]]*(test|it)\(' 2>/dev/null | wc -l | tr -d ' ')
+      | xargs -0 -r grep -hE '^[[:space:]]*(test|it)\(' 2>/dev/null | wc -l | tr -d ' ')
     [ "${TESTS:-0}" -ge 8 ] || { fail "$name (node) : contrat B règle 3 — $TESTS tests trouvés, minimum 8"; continue; }
 
   elif [ -f "$dir/go.mod" ]; then
@@ -64,7 +64,7 @@ for name in $TARGETS; do
     ruff check .        || { fail "$name : ruff"; continue; }
     pytest -q           || { fail "$name : pytest"; continue; }
     # Contrat B, règle 3 : minimum 8 tests réels.
-    TESTS=$(grep -rE '^def test_' "$dir" --include='*.py' --exclude-dir='.venv' --exclude-dir='__pycache__' 2>/dev/null | wc -l | tr -d ' ')
+    TESTS=$(grep -rE '^[[:space:]]*def test_' "$dir" --include='*.py' --exclude-dir='.venv' --exclude-dir='__pycache__' 2>/dev/null | wc -l | tr -d ' ')
     [ "${TESTS:-0}" -ge 8 ] || { fail "$name (python) : contrat B règle 3 — $TESTS tests trouvés, minimum 8"; continue; }
 
   else

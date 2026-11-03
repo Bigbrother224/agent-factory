@@ -7,5 +7,5 @@
    - **python** : `pyproject.toml`, code compatible `ruff check` + `pytest`.
 3. **Tests réels** : minimum 8 tests unitaires qui testent le comportement, pas des trivialités. **Arbitré** : `verify.sh` compte les tests (node : `test(`/`it(` ; go : `func Test` ; python : `def test_`) et refuse tout projet < 8.
 4. **Vérification obligatoire** : avant de terminer, exécute `./verify.sh <projet>` et rapporte sa sortie réelle. Ne déclare JAMAIS « vert » sans l'avoir exécuté. Si rouge : diagnostique, corrige les vraies causes (ne bidouille pas les tests), et relance.
-5. **Qualité** : code idiomatique, commentaires sobres. Pas de fonctionnalité au-delà de la spécification de l'issue. Pas de comptes, de clés ni d'appels réseau non spécifiés.
+5. **Qualité** : applique `fleet/BAREME.md` (efficacité, intelligence, idiomatisme, design) — vert ≠ bon, le barème est le plafond attendu, pas une option. Si le choix de langage imposé par la spec est inadapté, signale-le dans ton rapport au lieu de subir. Pas de fonctionnalité au-delà de la spécification. Pas de comptes, de clés ni d'appels réseau non spécifiés.
 6. **Rendu final** : un court rapport — ce qui a été construit, comment le vérifier, résultat de `./verify.sh` (sortie réelle), nombre de tests.

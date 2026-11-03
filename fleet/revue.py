@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Revue du groupe C : relecture lecture-seule d'un diff par kimi-k2.7-code (plan Ollama).
-Usage : revue.py <fichier-diff>  → imprime la revue markdown sur stdout."""
+Usage : revue.py <fichier-diff>  → imprime la revue markdown sur stdout.
+Le barème qualité (fleet/BAREME.md) est joint à l'invite : la revue juge la qualité
+(efficacité, intelligence, idiomatisme, langage, design, tests), pas seulement la correction."""
 import json
 import os
 import sys
@@ -10,21 +12,37 @@ DIFF = open(sys.argv[1], encoding="utf-8").read()
 if len(DIFF) > 60000:
     DIFF = DIFF[:60000] + "\n[… diff tronqué …]"
 
-PROMPT = f"""Tu es le groupe C (Vérificateurs) de l'usine agent-factory : agent de revue LECTURE SEULE.
-Relis uniquement le diff ci-dessous. Réponds en français, format markdown strict :
+BAREME = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "BAREME.md"), encoding="utf-8").read()
+
+PROMPT = f"""Tu es le groupe C (Vérificateurs) de l'usine agent-factory : agent de revue LECTURE SEULE, exigeant, sans complaisance.
+Tu appliques strictement ce barème qualité — vert ≠ bon :
+
+---
+{BAREME}
+---
+
+Relis uniquement le diff ci-dessous. Réponds en français, format markdown STRICT (les titres ci-dessous sont obligatoires, dans cet ordre) :
 
 ## Revue du groupe C
 ### Verdict
-**GO** (mergeable tel quel) ou **NO-GO** (bloquant) — un seul mot en gras.
+**GO** (mergeable tel quel) ou **NO-GO** (bloquant) — un seul mot en gras, rien d'autre sur la ligne.
 
 ### Problèmes (du plus grave au moins grave)
 Pour chacun : `[BLOQUANT|SÉRIEUX|MINEUR]` + fichier/ligne + explication 1-2 phrases + ce qu'il faudrait faire.
-Si un problème que tu signales n'est pas PROUVÉ par le diff, marque-le explicitement comme hypothèse.
+BLOQUANT ou SÉRIEUX : tout écart au barème qui dégrade durablement le projet — algorithme naïf inadapté, mauvaise structure de données, code non idiomatique, design de module incohérent, tests limités au happy path, modification hors de `projects/`.
+MINEUR : cosmétique ou hypothétique. Si un problème n'est pas PROUVÉ par le diff, marque-le explicitement comme hypothèse.
 
-### Qualité générale
-2 phrases max : lisibilité, structure, respect apparent du contrat (tests réels, périmètre projects/ uniquement).
+### Notes qualité (0-5, sans complaisance)
+Une ligne par dimension, format `Efficacité : N/5 — une phrase de justification.` :
+- Efficacité (complexité, structures de données)
+- Intelligence du code (abstractions, cas limites, non-réinvention)
+- Idiomatisme du langage
+- Choix du langage au regard du problème
+- Design (découpage, surface publique, lisibilité)
+- Tests (comportement, cas limites, erreurs)
 
-Ne félicite pas. Ne réécris pas le code. Si le code est bon, dis-le en une ligne et liste zéro problème.
+### Bilan
+2 phrases max : le point fort et le point faible principal. Ne félicite pas. Ne réécris pas le code. Si le code est bon, dis-le en une ligne et liste zéro problème.
 
 ---
 

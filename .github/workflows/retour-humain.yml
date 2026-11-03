@@ -108,7 +108,7 @@ jobs:
           # PR ouverte si possible ; sinon on ROUVIT celle qui existe (ex. fermée sans merge).
           PR_URL=$(gh pr list --repo "$GITHUB_REPOSITORY" --head "fleet/$SLUG" --state open --json url -q '.[0].url' 2>/dev/null || true)
           if [ -z "$PR_URL" ]; then
-            CLOSED_URL=$(gh pr list --repo "$GITHUB_REPOSITORY" --head "fleet/$SLUG" --state closed --json url -q '.[0].url' 2>/dev/null || true)
+            CLOSED_URL=$(gh pr list --repo "$GITHUB_REPOSITORY" --head "fleet/$SLUG" --state closed --json url,state -q '[.[] | select(.state=="CLOSED")][0].url' 2>/dev/null || true)
             if [ -n "$CLOSED_URL" ]; then
               gh pr reopen "$CLOSED_URL" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 || true
               PR_URL="$CLOSED_URL"

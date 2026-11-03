@@ -79,7 +79,8 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OLLAMA_API_KEY }}
         run: |
           if [ "${DUPLICATE:-0}" = "1" ]; then echo ">>> Doublon ignoré (ship/pr déjà posé)."; exit 0; fi
-          AIDER="aider --model openai/glm-5.3:cloud --openai-api-base https://ollama.com/v1 \            --weak-model openai/glm-5.3-flash:cloud --edit-format udiff \
+          AIDER="aider --model openai/glm-5.3:cloud --openai-api-base https://ollama.com/v1 \
+            --weak-model openai/glm-5.3-flash:cloud --edit-format udiff \
             --yes-always --no-auto-lint --no-check-update \
             --no-attribute-author --no-attribute-committer \
             --no-attribute-commit-message-author --no-attribute-commit-message-committer"
@@ -152,7 +153,7 @@ jobs:
             FAIL_LINK=$(gh pr checks "$PR_URL" --repo "$GITHUB_REPOSITORY" --json name,state,link \
               -q '[.[] | select(.state=="FAILURE" or .state=="fail")][0].link' 2>/dev/null || true)
             if [ -n "$FAIL_LINK" ]; then
-              gh run view "$(basename "$FAIL_LINK")" --repo "$GITHUB_REPOSITORY" --log-failed > /tmp/ci-red.txt 2>&1 \
+              gh run view "$FAIL_LINK" --repo "$GITHUB_REPOSITORY" --log-failed > /tmp/ci-red.txt 2>&1 \
                 || echo "log CI indisponible" > /tmp/ci-red.txt
             else
               echo "log CI indisponible" > /tmp/ci-red.txt
