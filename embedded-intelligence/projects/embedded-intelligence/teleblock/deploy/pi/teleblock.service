@@ -1,0 +1,36 @@
+[Unit]
+Description=teleblock — DNS filtering gateway
+Documentation=file:///usr/share/doc/teleblock/README-Pi.md
+After=network-online.target
+Wants=network-online.target
+ConditionPathExists=/usr/local/bin/teleblock
+
+[Service]
+Type=simple
+User=teleblock
+Group=teleblock
+# The command line lives in the environment file, not in the unit: an operator
+# can change ports, upstream resolver or blocklists on the boot partition
+# before the very first boot.
+EnvironmentFile=/etc/teleblock/teleblock.env
+ExecStart=/usr/local/bin/teleblock $TELEBLOCK_ARGS
+Restart=on-failure
+RestartSec=3s
+StateDirectory=teleblock
+ConfigurationDirectory=teleblock
+RuntimeDirectory=teleblock
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+# Port 53 is privileged; the service keeps no other capability.
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+LimitNOFILE=4096
+
+[Install]
+WantedBy=multi-user.target
