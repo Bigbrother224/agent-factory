@@ -69,12 +69,15 @@ and the counter talks like a person, not a firewall.
 
 3. **A flashable Raspberry Pi image.** Preconfigured card via Raspberry Pi
    Imager; the Pi boots straight into gateway duty and the dashboard answers on
-   first boot. Roadmap item T7 — not shipped yet.
+   first boot. `deploy/pi/imagegen` assembles the image payload and its systemd
+   unit, and `tests/e2e.sh` cross-compiles the ARM64 binary and checks both on
+   every run.
 
 ## What the tests pin down
 
-Every change must keep `./verify.sh teleblock` green: vet, build, and the unit
-test suite.
+Every change must keep `./verify.sh teleblock` green: vet, build, the unit test
+suite, and `tests/e2e.sh` — a real binary on real sockets, plus the ARM64 image
+payload.
 
 - DNS — response encoding, flags and RCODE carried over from the query
 - Rules — exact and subdomain matching, verdict resolution, per-brand default sets
@@ -83,9 +86,19 @@ test suite.
 - Learning — observation window, persisted state, automatic enforcement
 - Dashboard — handlers, per-TV counters, brand assignment
 
-What no unit test can certify is your living room. That is the final roadmap
-tranche: a real Samsung and a real LG, Netflix playing end to end, telemetry
-confirmed blocked at the dashboard.
+## Validating the shipped definition
+
+What no unit test can certify is your living room: a real Samsung and a real LG,
+Netflix and YouTube playing end to end, telemetry counted as blocked at the
+dashboard. That evidence lives in [`docs/validation.md`](docs/validation.md), a
+dated report with one row per check and the proof behind it.
+
+`go run ./deploy/validation -report docs/validation.md` reads that report and
+fails on a missing check, an unknown status, or a row without evidence.
+`go run ./deploy/validation -gate -report docs/validation.md` additionally
+demands every row be `PASS` and the report signed. That is what keeps the report
+honest: it stays unverified until the hardware session happens, and nobody can
+call the project shipped by asserting it.
 
 ## License
 
