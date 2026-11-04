@@ -1,0 +1,28 @@
+[Unit]
+Description=TeleBlock — passerelle DNS anti-télémétrie pour TV
+Wants=network-online.target
+After=network-online.target
+# avahi publie teleblock.local sur le réseau local : il démarre avec nous.
+After=avahi-daemon.service
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/teleblock
+Restart=on-failure
+RestartSec=2s
+WorkingDirectory=/var/lib/teleblock
+# L'état appris (JSON, zéro cloud) survit aux mises à jour du binaire.
+StateDirectory=teleblock
+# Port 53 sans root : le processus ne reçoit que ce dont il a besoin.
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+# Réglages avancés optionnels, sans éditer cette unité.
+EnvironmentFile=-/etc/teleblock/teleblock.env
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/lib/teleblock
+
+[Install]
+WantedBy=multi-user.target

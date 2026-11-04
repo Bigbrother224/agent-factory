@@ -1,0 +1,44 @@
+# TeleBlock — déploiement Docker Compose (roadmap T6).
+#
+# Compatible « déjà un Pi-hole » :
+#   - le port DNS hôte est surchargeable via TELEBLOCK_DNS_PORT (53 par
+#     défaut ; deploy/.env, écrit par install.sh, bascule sur 5353 quand
+#     un Pi-hole occupe déjà le 53) ;
+#   - install.sh importe la gravity Pi-hole dans l'état TeleBlock.
+#
+# network_mode: host est REQUIRED : la redirection iptables des flux TCP
+# 443 des TV (T1, appliquée par deploy/entrypoint.sh) doit voir le
+# trafic du LAN — un bridge ne publierait que le 53 et laisserait
+# l'inspecteur SNI inopérant. L'état d'apprentissage (T3) persiste via
+# le montage vers /var/lib/teleblock (surchargeable par TELEBLOCK_STATE,
+# que install.sh exporte).
+#
+# -observe-state non vide est VOLONTAIRE, c'est la spécification T3 : la
+# TV démarre en observation (~1 semaine — rien n'est bloqué pendant sa
+# période d'apprentissage, les domaines vus et leur verdict proposé sont
+# consignés), puis son profil appris s'applique automatiquement ; l'état
+# survit aux recréations de conteneur. Un drapeau vide désactiverait
+# l'apprentissage et appliquerait immédiatement les règles de marque.
+
+services:
+  teleblock:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    restart: unless-stopped
+    network_mode: host
+    cap_add:
+      - NET_ADMIN
+    command:
+      - -listen
+      - ":${TELEBLOCK_DNS_PORT:-53}"
+      - -tls-listen
+      - ":${TELEBLOCK_TLS_PORT:-8449}"
+      # Dashboard TV panel : en network_mode: host, ce port EST celui du LAN
+      # (accessible par défaut sur http://<hôte>:8080).
+      - -web-listen
+      - ":${TELEBLOCK_WEB_PORT:-8080}"
+      - -observe-state
+      - /var/lib/teleblock/observe.json
+    volumes:
+      - "${TELEBLOCK_STATE:-./data}:/var/lib/teleblock"

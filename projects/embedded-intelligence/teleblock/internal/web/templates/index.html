@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TéléBloc — tableau des TV</title>
+<style>
+:root{--metal:#eceef1;--shell:#ffffff;--steel:#c9ced4;--ink:#22272b;--muted:#68757e;--alert:#d7263d;--safe:#2e7d5b}
+*{box-sizing:border-box}
+body{margin:0;padding:2rem 1rem 3rem;background:var(--metal);color:var(--ink);font:16px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif}
+.wrap{max-width:44rem;margin:0 auto}
+h1{margin:0;font-size:1.45rem;letter-spacing:-.01em}
+.sub{margin:.15rem 0 1.6rem;color:var(--muted);font-size:.92rem}
+.device{background:var(--shell);border:1px solid var(--steel);border-radius:6px;padding:1rem 1.15rem;margin-bottom:.8rem}
+.device.tv{border-color:var(--ink)}
+.id{display:flex;flex-wrap:wrap;gap:.45rem .8rem;align-items:baseline;margin-bottom:.3rem}
+.lamp{width:.62rem;height:.62rem;border-radius:50%;background:var(--steel);flex:none;align-self:center}
+.lamp.on{background:var(--safe)}
+.lamp.hot{background:var(--alert)}
+.name{font-weight:650;font-size:1.06rem}
+.addr{color:var(--muted);font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-size:.8rem}
+.count{margin:.55rem 0 .8rem;font-size:.95rem}
+.count strong{font-size:1.8rem;font-variant-numeric:tabular-nums;margin-right:.35rem}
+.count.hot strong{color:var(--alert)}
+.assign{display:flex;flex-wrap:wrap;gap:.4rem;align-items:center;border-top:1px solid var(--steel);padding-top:.8rem}
+.lbl{color:var(--muted);font-size:.85rem;margin-right:.15rem}
+.chip{font:inherit;font-size:.85rem;font-weight:600;color:var(--ink);background:#fff;border:1px solid var(--steel);border-radius:999px;padding:.26rem .75rem;cursor:pointer}
+.chip:hover{border-color:var(--ink)}
+.chip.sel{background:var(--ink);border-color:var(--ink);color:#fff}
+:focus-visible{outline:2px solid var(--alert);outline-offset:2px}
+.empty{background:var(--shell);border:1px dashed var(--steel);border-radius:6px;padding:1.2rem;color:var(--muted)}
+.footer{margin-top:1.6rem;color:var(--muted);font-size:.8rem}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+<h1>TéléBloc</h1>
+<p class="sub">{{.TVsText}} — zéro compte, zéro télémétrie.</p>
+</header>
+{{if .Devices}}
+{{range .Devices}}
+<section class="device{{if .IsTV}} tv{{end}}">
+	<div class="id">
+		<span class="{{.Lamp}}"></span>
+		<span class="name">{{.Name}}</span>
+		<span class="addr">{{.Addr}}</span>
+	</div>
+	{{if .Blocked}}
+	<p class="count hot"><strong>{{.Blocked}}</strong>{{.CountPhrase}}</p>
+	{{else}}
+	<p class="count">{{.BlockedText}}</p>
+	{{end}}
+	<form class="assign" method="post" action="/assign">
+		<input type="hidden" name="ip" value="{{.IP}}">
+		<span class="lbl">Marque de cet écran :</span>
+		{{range .Options}}<button type="submit" name="brand" value="{{.Value}}" class="chip{{if .Selected}} sel{{end}}">{{.Label}}</button>
+		{{end}}
+	</form>
+</section>
+{{end}}
+{{else}}
+<p class="empty">Aucun appareil connu pour l'instant. Le tableau se remplit tout seul quand les machines du réseau parlent (table ARP), ou quand tu assignes une marque ici.</p>
+{{end}}
+<p class="footer">Ce tableau tourne entièrement sur la box ; rien n'est envoyé nulle part. Compteurs remis à zéro chaque jour (en mémoire, local).</p>
+</div>
+</body>
+</html>
