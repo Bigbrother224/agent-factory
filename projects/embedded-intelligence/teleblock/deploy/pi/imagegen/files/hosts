@@ -1,0 +1,6 @@
+127.0.0.1 localhost
+::1 localhost ip6-localhost ip6-loopback
+
+# teleblock.local est publié en mDNS par avahi, mais on le résout aussi
+# localement pour que le Pi se joigne lui-même même sans avahi démarré.
+127.0.1.1 teleblock.local teleblock
