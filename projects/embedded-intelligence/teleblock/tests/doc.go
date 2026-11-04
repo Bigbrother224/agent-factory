@@ -11,4 +11,4 @@
 // ./... / go build ./... échouent avec « build constraints exclude all
 // Go files in .../tests » — l'arbitre devient rouge avant même
 // d'exécuter un test.
-package tests
+package e2e
