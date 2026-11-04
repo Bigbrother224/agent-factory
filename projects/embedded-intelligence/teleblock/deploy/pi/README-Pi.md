@@ -11,11 +11,11 @@ premier boot. Rien à installer sur les TV, aucun compte, aucun cloud.
     2. sudo tar -C /media/moi/rootfs -xzf dist/teleblock-pi-rootfs.tar.gz
     3. carte dans le Pi, puis http://teleblock.local
 
-Avant l'étape 2, flashez Raspberry Pi OS Lite (64 bits) avec **Raspberry Pi
-Imager** et, dans les réglages avancés, posez le nom d'hôte `teleblock`, votre
-Wi-Fi et une clé SSH : c'est ce que le premier boot utilise pour se mettre en
-ligne. L'étape 2 écrit sur la partition root de la carte, avant de la remettre
-dans le Pi.
+Avant l'étape 2, flashez Raspberry Pi OS Lite (64 bits) avec
+**Raspberry Pi Imager** et, dans les réglages avancés, posez le nom d'hôte
+`teleblock`, votre Wi-Fi et une clé SSH : c'est ce que le premier boot utilise
+pour se mettre en ligne. L'étape 2 écrit sur la partition root de la carte,
+avant de la remettre dans le Pi.
 
 ## Ce que la charge utile pose dans l'image
 
